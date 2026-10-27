@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "@neon/config": "^1.9.5"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
+}

@@ -1,0 +1,600 @@
+"""Auth API routes."""
+
+import logging
+import phonenumbers
+from datetime import datetime, timezone, timedelta
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from pydantic import BaseModel, field_validator, EmailStr
+from typing import Optional
+
+from app.core.database import get_db
+from app.core.deps import get_current_user, get_redis
+from app.core.security import (
+    hash_password, verify_password, create_access_token,
+    create_refresh_token, store_refresh_token, invalidate_refresh_token, decode_token
+)
+from app.models.user import User, AccountType, UserMode, KYCStatus
+from app.services.sms import send_otp, verify_otp_code
+from app.services.email import send_welcome_email
+from app.core.config import settings
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
+
+LAGOS_LGAS = [
+    "Agege", "Ajeromi-Ifelodun", "Alimosho", "Amuwo-Odofin", "Apapa",
+    "Badagry", "Epe", "Eti Osa", "Ibeju-Lekki", "Ifako-Ijaiye", "Ikeja",
+    "Ikorodu", "Kosofe", "Lagos Island", "Lagos Mainland", "Mushin",
+    "Ojo", "Oshodi-Isolo", "Shomolu", "Surulere",
+]
+
+
+# ── Schemas ──────────────────────────────────────────────────────────────────
+
+class SignupRequest(BaseModel):
+    phone: str
+    name: str
+    email: Optional[str] = None
+    password: str
+    state: str = "Lagos"
+    lga: str
+    account_type: AccountType = AccountType.individual
+    business_name: Optional[str] = None
+    cac_number: Optional[str] = None
+    agree_to_policy: bool = False
+
+    @field_validator("agree_to_policy")
+    @classmethod
+    def validate_policy_agreement(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("You must accept Reva's Terms of Service, Privacy Policy and Trust & Safety Policy to register")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        try:
+            parsed = phonenumbers.parse(v, None)
+            if not phonenumbers.is_valid_number(parsed):
+                raise ValueError("Invalid phone number")
+            if parsed.country_code != 234:
+                raise ValueError("Phone number must be a Nigerian number (+234…)")
+        except phonenumbers.NumberParseException:
+            raise ValueError("Phone number must be in E.164 format (e.g. +2348012345678)")
+        return phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+
+    @field_validator("lga")
+    @classmethod
+    def validate_lga(cls, v: str) -> str:
+        if v not in LAGOS_LGAS:
+            raise ValueError(f"LGA must be one of: {', '.join(LAGOS_LGAS)}")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+    @field_validator("business_name")
+    @classmethod
+    def validate_business_name(cls, v: Optional[str], info) -> Optional[str]:
+        return v
+
+
+class VerifyOTPRequest(BaseModel):
+    phone: str
+    otp: str
+
+
+class LoginRequest(BaseModel):
+    phone: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user_id: str
+    name: str
+    mode: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class SwitchModeRequest(BaseModel):
+    mode: UserMode
+
+
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    lga: Optional[str] = None
+    business_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class GoogleAuthRequest(BaseModel):
+    credential: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    google_id: Optional[str] = None
+
+
+# ── Routes ───────────────────────────────────────────────────────────────────
+
+@router.post("/google")
+async def google_auth(
+    req: GoogleAuthRequest,
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis),
+):
+    """Authenticate or register a user with Google (zero SMS/email OTP friction)."""
+    email = req.email
+    name = req.name
+    avatar_url = req.avatar_url
+    google_id = req.google_id
+
+    # If Google credential (ID token) was passed from GIS, verify with Google
+    if req.credential:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"https://oauth2.googleapis.com/tokeninfo?id_token={req.credential}"
+                )
+                if resp.status_code == 200:
+                    payload = resp.json()
+                    email = payload.get("email", email)
+                    name = payload.get("name", name)
+                    avatar_url = payload.get("picture", avatar_url)
+                    google_id = payload.get("sub", google_id)
+        except Exception as exc:
+            logger.warning("Google token verification warning: %s", exc)
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Google account email is required")
+
+    email = email.strip().lower()
+
+    # Find existing user by email or google_id
+    stmt = select(User).where((User.email == email) | (User.google_id == google_id))
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if user:
+        if google_id and not user.google_id:
+            user.google_id = google_id
+        if avatar_url and not user.avatar_url:
+            user.avatar_url = avatar_url
+        user.is_email_verified = True
+        user.last_login_at = datetime.now(timezone.utc)
+        await db.commit()
+    else:
+        # Create new user pre-verified via Google
+        new_name = name or email.split("@")[0].replace(".", " ").title()
+        user_id = uuid.uuid4()
+        user = User(
+            id=user_id,
+            email=email,
+            name=new_name,
+            google_id=google_id or f"google_{uuid.uuid4().hex[:12]}",
+            avatar_url=avatar_url,
+            is_email_verified=True,
+            is_phone_verified=True,
+            kyc_status=KYCStatus.verified,
+            current_mode=UserMode.buyer,
+            is_buyer=True,
+            is_seller=False,
+            is_staff=False,
+            is_admin=False,
+            state="Lagos",
+            lga="Ikeja",
+            account_type=AccountType.individual,
+            reva_id=f"REVA-{uuid.uuid4().hex[:8].upper()}",
+            policy_version_accepted="1.0",
+            policy_accepted_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+            last_login_at=datetime.now(timezone.utc),
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(str(user.id))
+    await store_refresh_token(str(user.id), refresh_token, redis)
+
+    user_dict = {
+        "id": str(user.id),
+        "name": user.name,
+        "email": user.email,
+        "phone": user.phone or "",
+        "avatar_url": user.avatar_url,
+        "reva_id": user.reva_id,
+        "kyc_status": user.kyc_status.value if hasattr(user.kyc_status, "value") else str(user.kyc_status),
+        "account_type": user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type),
+        "state": user.state,
+        "lga": user.lga,
+        "is_buyer": user.is_buyer,
+        "is_seller": user.is_seller,
+        "is_admin": user.is_admin,
+        "is_staff": user.is_staff,
+        "is_premium": user.is_premium,
+        "current_mode": user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode),
+    }
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user_id": str(user.id),
+        "name": user.name,
+        "mode": user.current_mode.value,
+        "user": user_dict,
+    }
+
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
+async def signup(
+    req: SignupRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis),
+):
+    """Register a new user. Sends SMS OTP for phone verification."""
+    # Check phone uniqueness
+    existing = await db.execute(select(User).where(User.phone == req.phone))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Phone number already registered")
+
+    # Check email uniqueness if provided
+    if req.email:
+        existing_email = await db.execute(select(User).where(User.email == req.email))
+        if existing_email.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+    if req.account_type == AccountType.business and not req.business_name:
+        raise HTTPException(status_code=400, detail="Business name is required for business accounts")
+
+    user = User(
+        phone=req.phone,
+        name=req.name,
+        email=req.email,
+        hashed_password=hash_password(req.password),
+        state=req.state,
+        lga=req.lga,
+        account_type=req.account_type,
+        business_name=req.business_name,
+        cac_number=req.cac_number,
+        is_buyer=True,
+        is_seller=False,
+        current_mode=UserMode.buyer,
+        policy_version_accepted=settings.CURRENT_POLICY_VERSION,
+        policy_accepted_at=datetime.now(timezone.utc),
+    )
+    db.add(user)
+    await db.flush()
+    user.reva_id = f"REVA-{str(user.id).upper()}"
+    await db.commit()
+    await db.refresh(user)
+
+    # Send OTP (background so response is fast)
+    await send_otp(req.phone, redis)
+
+    if req.email:
+        background_tasks.add_task(send_welcome_email, user)
+
+    return {
+        "message": "Account created. Please verify your phone number with the OTP sent.",
+        "user_id": str(user.id),
+        "reva_id": user.reva_id,
+    }
+
+
+@router.post("/verify-otp")
+async def verify_otp(
+    req: VerifyOTPRequest,
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis),
+):
+    """Verify phone OTP and return JWT tokens."""
+    valid = await verify_otp_code(req.phone, req.otp, redis)
+    if not valid:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
+    result = await db.execute(select(User).where(User.phone == req.phone))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.is_phone_verified = True
+    user.last_login_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(str(user.id))
+    await store_refresh_token(str(user.id), refresh_token, redis)
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=str(user.id),
+        name=user.name,
+        mode=user.current_mode.value,
+    )
+
+
+@router.post("/login")
+async def login(
+    req: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis),
+):
+    """Login with phone + password."""
+    result = await db.execute(select(User).where(User.phone == req.phone))
+    user = result.scalar_one_or_none()
+
+    if not user or not verify_password(req.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect phone number or password")
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account disabled. Contact support.")
+
+    if not user.is_phone_verified:
+        # Re-send OTP
+        await send_otp(req.phone, redis)
+        raise HTTPException(
+            status_code=403,
+            detail="Phone not verified. A new OTP has been sent.",
+        )
+
+    user.last_login_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(str(user.id))
+    await store_refresh_token(str(user.id), refresh_token, redis)
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=str(user.id),
+        name=user.name,
+        mode=user.current_mode.value,
+    )
+
+
+@router.post("/refresh")
+async def refresh_token(
+    req: RefreshRequest,
+    redis = Depends(get_redis),
+):
+    """Refresh access token using a valid refresh token."""
+    try:
+        payload = decode_token(req.refresh_token)
+        if payload.get("type") != "refresh":
+            raise ValueError()
+        user_id = payload["sub"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    # Verify stored token matches
+    stored = await redis.get(f"refresh:{user_id}")
+    if not stored or stored != req.refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token expired or revoked")
+
+    access_token = create_access_token(user_id)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/logout")
+async def logout(
+    current_user: User = Depends(get_current_user),
+    redis = Depends(get_redis),
+):
+    await invalidate_refresh_token(str(current_user.id), redis)
+    return {"message": "Logged out successfully"}
+
+
+@router.get("/me")
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # Ensure existing users receive stable Reva IDs if missing
+    if not current_user.reva_id:
+        current_user.reva_id = f"REVA-{str(current_user.id).upper()}"
+        await db.commit()
+        await db.refresh(current_user)
+
+    return {
+        "id": str(current_user.id),
+        "reva_id": current_user.reva_id,
+        "is_premium": bool(current_user.is_premium),
+        "premium_activated_at": current_user.premium_activated_at.isoformat() if current_user.premium_activated_at else None,
+        "premium_expires_at": current_user.premium_expires_at.isoformat() if current_user.premium_expires_at else None,
+        "phone": current_user.phone,
+        "email": current_user.email,
+        "name": current_user.name,
+        "account_type": current_user.account_type.value,
+        "business_name": current_user.business_name,
+        "state": current_user.state,
+        "lga": current_user.lga,
+        "is_phone_verified": current_user.is_phone_verified,
+        "is_email_verified": current_user.is_email_verified,
+        "kyc_status": current_user.kyc_status.value,
+        "current_mode": current_user.current_mode.value,
+        "is_buyer": current_user.is_buyer,
+        "is_seller": current_user.is_seller,
+        "is_staff": current_user.is_staff,
+        "is_admin": current_user.is_admin,
+        "is_restricted": getattr(current_user, "is_restricted", False),
+        "policy_version_accepted": current_user.policy_version_accepted,
+        "avatar_url": current_user.avatar_url,
+        "average_rating": float(current_user.average_rating or 0),
+        "review_count": current_user.review_count,
+        "completed_orders_count": current_user.completed_orders_count,
+        "is_verified_seller": current_user.is_verified_seller,
+        "created_at": current_user.created_at.isoformat(),
+    }
+
+
+@router.put("/me")
+async def update_me(
+    req: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if req.name:
+        current_user.name = req.name
+    if req.email is not None:
+        if req.email != current_user.email:
+            existing = await db.execute(select(User).where(User.email == req.email))
+            if existing.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail="Email already in use")
+            current_user.email = req.email
+            current_user.is_email_verified = False
+    if req.lga:
+        if req.lga not in LAGOS_LGAS:
+            raise HTTPException(status_code=400, detail="Invalid LGA")
+        current_user.lga = req.lga
+    if req.business_name is not None:
+        current_user.business_name = req.business_name
+    if req.avatar_url is not None:
+        current_user.avatar_url = req.avatar_url
+
+    await db.commit()
+    return {"message": "Profile updated"}
+
+
+@router.post("/switch-mode")
+async def switch_mode(
+    req: SwitchModeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if req.mode == UserMode.seller and not current_user.is_phone_verified:
+        raise HTTPException(status_code=400, detail="Phone verification required to sell")
+    if req.mode == UserMode.seller:
+        current_user.is_seller = True
+    current_user.current_mode = req.mode
+    await db.commit()
+    return {"mode": req.mode.value, "message": f"Switched to {req.mode.value} mode"}
+
+
+@router.post("/kyc-start")
+async def kyc_start(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Start KYC verification process with the configured provider."""
+    if not settings.kyc_configured:
+        return {
+            "message": "KYC provider not configured. Set KYC_API_KEY and KYC_PROVIDER_URL.",
+            "configured": False,
+            "redirect_url": None,
+        }
+
+    # In production: call KYC provider API, store reference, return redirect URL
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{settings.KYC_PROVIDER_URL}/start",
+                headers={"Authorization": f"Bearer {settings.KYC_API_KEY}"},
+                json={"user_id": str(current_user.id), "phone": current_user.phone},
+            )
+        data = resp.json()
+        ref = data.get("reference", "")
+        redirect_url = data.get("redirect_url", "")
+        current_user.kyc_status = KYCStatus.in_progress
+        current_user.kyc_provider_ref = ref
+        current_user.kyc_started_at = datetime.now(timezone.utc)
+        await db.commit()
+        return {"redirect_url": redirect_url, "reference": ref, "configured": True}
+    except Exception as exc:
+        logger.exception("KYC start error: %s", exc)
+        raise HTTPException(status_code=502, detail="KYC provider unavailable")
+
+
+@router.post("/kyc-callback")
+async def kyc_callback(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    """Receive KYC verification callback from provider (webhook)."""
+    import hmac, hashlib
+    if settings.KYC_WEBHOOK_SECRET:
+        sig = payload.pop("signature", "")
+        import json
+        body = json.dumps(payload, sort_keys=True).encode()
+        expected = hmac.new(settings.KYC_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    user_id = payload.get("user_id")
+    provider_status = payload.get("status")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if provider_status == "verified":
+        user.kyc_status = KYCStatus.verified
+        user.kyc_verified_at = datetime.now(timezone.utc)
+    elif provider_status == "rejected":
+        user.kyc_status = KYCStatus.rejected
+
+    await db.commit()
+    return {"message": "KYC status updated"}
+
+
+@router.post("/resend-otp")
+async def resend_otp(
+    req: VerifyOTPRequest,
+    redis = Depends(get_redis),
+):
+    """Resend OTP to the given phone number."""
+    await send_otp(req.phone, redis)
+    return {"message": "OTP resent"}
+
+
+@router.post("/premium/activate-month")
+@router.post("/me/activate-premium")
+async def activate_premium_one_month(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Activate Premium for 1 month (30 days) on the current user's account."""
+    now = datetime.now(timezone.utc)
+    base = current_user.premium_expires_at if (current_user.premium_expires_at and current_user.premium_expires_at > now) else now
+    current_user.is_premium = True
+    current_user.premium_expires_at = base + timedelta(days=30)
+    if not current_user.reva_id:
+        current_user.reva_id = f"REVA-{str(current_user.id).upper()}"
+    await db.commit()
+    await db.refresh(current_user)
+    return {
+        "message": "Premium activated for 1 month (30 days) successfully!",
+        "is_premium": current_user.is_premium,
+        "premium_expires_at": current_user.premium_expires_at.isoformat(),
+        "reva_id": current_user.reva_id,
+        "user": {
+            "id": str(current_user.id),
+            "phone": current_user.phone,
+            "name": current_user.name,
+            "email": current_user.email,
+            "reva_id": current_user.reva_id,
+            "is_premium": current_user.is_premium,
+            "premium_expires_at": current_user.premium_expires_at.isoformat(),
+        }
+    }
+
