@@ -299,7 +299,7 @@ async def get_automation_summary(db: AsyncSession = Depends(get_db)):
 
     # Total completed GMV
     gmv_result = await db.execute(
-        select(func.sum(Order.total_amount_naira)).where(Order.status == OrderStatus.completed)
+        select(func.sum(Order.total_amount_ngn)).where(Order.status == OrderStatus.completed)
     )
     total_gmv = float(gmv_result.scalar() or 0)
 
