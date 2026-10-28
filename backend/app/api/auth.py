@@ -324,14 +324,19 @@ async def verify_otp(
 
     access_token = create_access_token(str(user.id))
     refresh_token = create_refresh_token(str(user.id))
-    await store_refresh_token(str(user.id), refresh_token, redis)
+    try:
+        await store_refresh_token(str(user.id), refresh_token, redis)
+    except Exception as re_err:
+        logger.warning("Could not store refresh token in redis: %s", re_err)
+
+    user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "seller")
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user_id=str(user.id),
-        name=user.name,
-        mode=user.current_mode.value,
+        name=user.name or "Platform Administrator",
+        mode=user_mode_str,
     )
 
 
@@ -407,14 +412,19 @@ async def login(
 
     access_token = create_access_token(str(user.id))
     refresh_token = create_refresh_token(str(user.id))
-    await store_refresh_token(str(user.id), refresh_token, redis)
+    try:
+        await store_refresh_token(str(user.id), refresh_token, redis)
+    except Exception as re_err:
+        logger.warning("Could not store refresh token in redis: %s", re_err)
+
+    user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "seller")
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user_id=str(user.id),
-        name=user.name,
-        mode=user.current_mode.value,
+        name=user.name or "Platform Administrator",
+        mode=user_mode_str,
     )
 
 
