@@ -18,15 +18,8 @@ interface TutorStudioProps {
 export function TutorStudio({ onTutorialCreated }: TutorStudioProps) {
   const { user, isAuthenticated } = useAuthStore()
 
-  // Tutor permission status: 'none' | 'pending' | 'approved'
-  // Ordinary/free accounts can apply; staff/admins or previously approved users start approved
-  const [tutorStatus, setTutorStatus] = useState<'none' | 'pending' | 'approved'>(
-    user?.tutor_status === 'approved' || user?.is_staff || user?.is_admin
-      ? 'approved'
-      : user?.tutor_status === 'pending'
-      ? 'pending'
-      : 'none'
-  )
+  // Open tutorial upload access: anyone can upload tutorial videos directly
+  const [tutorStatus, setTutorStatus] = useState<'none' | 'pending' | 'approved'>('approved')
 
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [loading, setLoading] = useState(false)

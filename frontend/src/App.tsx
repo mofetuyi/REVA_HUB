@@ -9,6 +9,7 @@ import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { Layout, AuthLayout, AdminLayout } from './components/layout/Layout'
 import { PrivateRoute, AdminRoute, StaffRoute } from './components/layout/RouteGuards'
 import { LoadingPage } from './components/ui/index'
+import { useAuthStore } from './store/authStore'
 
 // ── Error Boundary ────────────────────────────────────────────────────────────
 interface ErrorBoundaryProps {
@@ -196,6 +197,7 @@ export default function App() {
 
 // ── Inline landing page ────────────────────────────────────────────────────────
 function HomePage() {
+  const { isAuthenticated } = useAuthStore()
   return (
     <div className="space-y-16 pb-16">
       {/* Hero */}
@@ -219,7 +221,7 @@ function HomePage() {
             Browse Materials
           </Link>
           <Link
-            to="/signup"
+            to={isAuthenticated ? "/listings/create" : "/signup"}
             className="inline-flex items-center justify-center gap-2 border-2 border-dark-900 text-dark-900 hover:bg-dark-900 hover:text-cream-50 font-semibold px-8 py-3 rounded-xl transition-colors"
           >
             Start Selling

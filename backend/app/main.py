@@ -69,85 +69,111 @@ async def lifespan(app: FastAPI):
                 await db.refresh(admin_user)
                 logger.info("Auto-provisioned primary administrator account (+2347076630396)")
 
-            listing_count_q = await db.execute(select(func.count(Listing.id)))
-            count = listing_count_q.scalar() or 0
-            if count == 0:
-                logger.info("Database has 0 listings. Seeding marketplace with recovered materials...")
-                now = datetime.now(timezone.utc)
-                sample_listings = [
-                    {
-                        "title": "Clean HDPE Blue Drum Flakes (Washed & Dried)",
-                        "slug": "clean-hdpe-blue-drum-flakes-ikeja",
-                        "category": ListingCategory.plastic,
-                        "description": "High-density polyethylene flakes from industrial blue drums. Hot washed, metal-separated, and ready for extrusion/molding in Ikeja.",
-                        "quantity": 2500,
-                        "unit": ListingUnit.kg,
-                        "condition": ListingCondition.cleaned,
-                        "price_ngn": 480.0,
-                        "state": "Lagos",
-                        "lga": "Ikeja",
-                        "pickup_address": "Plot 12 Commercial Avenue, Ikeja Industrial Estate",
-                        "photo": "https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=600&auto=format&fit=crop",
-                    },
-                    {
-                        "title": "Sorted Clear PET Bottle Bales (Grade A)",
-                        "slug": "sorted-clear-pet-bottle-bales-oshodi",
-                        "category": ListingCategory.plastic,
-                        "description": "100% transparent beverage bottles compressed into 250kg bales. Caps and labels removed. Ideal for bottle-to-bottle fiber production.",
-                        "quantity": 5000,
-                        "unit": ListingUnit.kg,
-                        "condition": ListingCondition.sorted,
-                        "price_ngn": 350.0,
-                        "state": "Lagos",
-                        "lga": "Oshodi-Isolo",
-                        "pickup_address": "Oshodi Recovery Depot, Agege Motor Road, Lagos",
-                        "photo": "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=600&auto=format&fit=crop",
-                    },
-                    {
-                        "title": "Stripped Bright Copper Wire Scrap (Millberry 99.9%)",
-                        "slug": "stripped-bright-copper-wire-mushin",
-                        "category": ListingCategory.metal,
-                        "description": "Clean, unalloyed copper wire scrap without insulation. Purity >99.9%. Ready for smelting and immediate dispatch in Mushin.",
-                        "quantity": 850,
-                        "unit": ListingUnit.kg,
-                        "condition": ListingCondition.cleaned,
-                        "price_ngn": 8200.0,
-                        "state": "Lagos",
-                        "lga": "Mushin",
-                        "pickup_address": "Ladipo Metals Yard, Mushin, Lagos",
-                        "photo": "https://images.unsplash.com/photo-1535813547-99c456a41d4a?w=600&auto=format&fit=crop",
-                    },
-                    {
-                        "title": "Baled Corrugated OCC Cardboard (Factory Grade)",
-                        "slug": "baled-corrugated-occ-cardboard-apapa",
-                        "category": ListingCategory.paper,
-                        "description": "Dense mill-ready cardboard bales from packaging warehouses in Apapa Port. Low moisture (<10%), zero wax.",
-                        "quantity": 10000,
-                        "unit": ListingUnit.kg,
-                        "condition": ListingCondition.sorted,
-                        "price_ngn": 180.0,
-                        "state": "Lagos",
-                        "lga": "Apapa",
-                        "pickup_address": "Wharf Road Logistics Hub, Apapa, Lagos",
-                        "photo": "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=600&auto=format&fit=crop",
-                    },
-                    {
-                        "title": "Scrap Aluminum Ingot & Extrusion Offcuts",
-                        "slug": "scrap-aluminum-ingot-extrusion-ikorodu",
-                        "category": ListingCategory.metal,
-                        "description": "6063 architectural aluminum extrusions and clean melted ingots. Clean surface, minimal paint.",
-                        "quantity": 3200,
-                        "unit": ListingUnit.kg,
-                        "condition": ListingCondition.sorted,
-                        "price_ngn": 2400.0,
-                        "state": "Lagos",
-                        "lga": "Ikorodu",
-                        "pickup_address": "Ikorodu Scrap Terminal, Sagamu Road, Lagos",
-                        "photo": "https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?w=600&auto=format&fit=crop",
-                    },
-                ]
+            now = datetime.now(timezone.utc)
+            sample_listings = [
+                {
+                    "title": "Refurbished Solid Hardwood Furniture & Office Desks Lot",
+                    "slug": "refurbished-solid-hardwood-furniture-ikeja",
+                    "category": ListingCategory.wood,
+                    "description": "Restored and refinished solid wood office desks, dining tables, bookshelves, and conference chairs. High-durability hardwood recovered and upcycled by local carpenters in Ikeja.",
+                    "quantity": 12,
+                    "unit": ListingUnit.pieces,
+                    "condition": ListingCondition.like_new,
+                    "price_ngn": 185000.0,
+                    "state": "Lagos",
+                    "lga": "Ikeja",
+                    "pickup_address": "Plot 14 Industrial Avenue, Ikeja Industrial Estate, Lagos",
+                    "photo": "/uploads/furniture_wood_showroom.jpg",
+                },
+                {
+                    "title": "Premium Tan Vegetable-Tanned Leather Hide & Upholstery Offcuts",
+                    "slug": "premium-tan-vegetable-tanned-leather-mushin",
+                    "category": ListingCategory.leather,
+                    "description": "Full grain vegetable-tanned leather hide rolls and offcut bundles from Lagos leather manufacturing workshops. Supple, clean finish ideal for footwear, bags, and luxury crafts.",
+                    "quantity": 25,
+                    "unit": ListingUnit.pieces,
+                    "condition": ListingCondition.like_new,
+                    "price_ngn": 35000.0,
+                    "state": "Lagos",
+                    "lga": "Mushin",
+                    "pickup_address": "Ladipo Leather Market, Mushin, Lagos",
+                    "photo": "/uploads/leather_tan_roll.jpg",
+                },
+                {
+                    "title": "Handmade Upcycled Rustic Leather Journal & Bound Notebooks",
+                    "slug": "handmade-upcycled-rustic-leather-journal-surulere",
+                    "category": ListingCategory.circular_products,
+                    "description": "Handcrafted artisan journal created from 100% recovered leather offcuts and unbleached recycled cotton paper with vintage wraparound leather tie cord.",
+                    "quantity": 50,
+                    "unit": ListingUnit.pieces,
+                    "condition": ListingCondition.new,
+                    "price_ngn": 8500.0,
+                    "state": "Lagos",
+                    "lga": "Surulere",
+                    "pickup_address": "18 Adeniran Ogunsanya St, Surulere, Lagos",
+                    "photo": "/uploads/leather_journal_notebook.jpg",
+                },
+                {
+                    "title": "Compacted Corrugated Cardboard Bales (Mill Grade OCC)",
+                    "slug": "compacted-corrugated-cardboard-bales-apapa",
+                    "category": ListingCategory.cardboard,
+                    "description": "Dense mill-ready compacted corrugated cardboard boxes and paper packaging bales. Strapped with high-tensile bands, ready for pulping or packaging conversion.",
+                    "quantity": 10,
+                    "unit": ListingUnit.tonnes,
+                    "condition": ListingCondition.mixed,
+                    "price_ngn": 120000.0,
+                    "state": "Lagos",
+                    "lga": "Apapa",
+                    "pickup_address": "Wharf Road Terminal, Apapa Port Area, Lagos",
+                    "photo": "/uploads/cardboard_bales_occ.jpg",
+                },
+                {
+                    "title": "Sorted Clean Cotton & Ankara Textile Scrap Bundles",
+                    "slug": "sorted-clean-cotton-ankara-textile-scraps-yaba",
+                    "category": ListingCategory.fabric,
+                    "description": "Clean garment factory and tailor offcuts sorted by color. Excellent for yarn recycling, knitting, patchwork quilting, and rag rug crafting in Yaba.",
+                    "quantity": 250,
+                    "unit": ListingUnit.kg,
+                    "condition": ListingCondition.new,
+                    "price_ngn": 28000.0,
+                    "state": "Lagos",
+                    "lga": "Lagos Mainland",
+                    "pickup_address": "Commercial Avenue, Sabo Yaba, Lagos",
+                    "photo": "/uploads/textile_fabric_scraps.jpg",
+                },
+                {
+                    "title": "Clean HDPE Blue Drum Flakes (Washed & Dried)",
+                    "slug": "clean-hdpe-blue-drum-flakes-ikeja",
+                    "category": ListingCategory.plastic,
+                    "description": "High-density polyethylene flakes from industrial blue drums. Hot washed, metal-separated, and ready for extrusion/molding in Ikeja.",
+                    "quantity": 2500,
+                    "unit": ListingUnit.kg,
+                    "condition": ListingCondition.like_new,
+                    "price_ngn": 480.0,
+                    "state": "Lagos",
+                    "lga": "Ikeja",
+                    "pickup_address": "Plot 12 Commercial Avenue, Ikeja Industrial Estate",
+                    "photo": "https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=600&auto=format&fit=crop",
+                },
+                {
+                    "title": "Sorted Clear PET Bottle Bales (Grade A)",
+                    "slug": "sorted-clear-pet-bottle-bales-oshodi",
+                    "category": ListingCategory.plastic,
+                    "description": "100% transparent beverage bottles compressed into 250kg bales. Caps and labels removed. Ideal for bottle-to-bottle fiber production.",
+                    "quantity": 5000,
+                    "unit": ListingUnit.kg,
+                    "condition": ListingCondition.like_new,
+                    "price_ngn": 350.0,
+                    "state": "Lagos",
+                    "lga": "Oshodi-Isolo",
+                    "pickup_address": "Oshodi Recovery Depot, Agege Motor Road, Lagos",
+                    "photo": "https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=600&auto=format&fit=crop",
+                },
+            ]
 
-                for item in sample_listings:
+            for item in sample_listings:
+                existing_lst = (await db.execute(select(Listing).where(Listing.slug == item["slug"]))).scalar_one_or_none()
+                if not existing_lst:
                     lst = Listing(
                         seller_id=admin_user.id,
                         slug=item["slug"],
@@ -172,8 +198,41 @@ async def lifespan(app: FastAPI):
                     photo = ListingPhoto(listing_id=lst.id, url=item["photo"], order_index=0)
                     db.add(photo)
 
-                await db.commit()
-                logger.info("Successfully seeded %d sample Lagos marketplace listings", len(sample_listings))
+            # Auto-seed Knitting Tutorial in Reva Learn
+            from app.models.tutorial import Tutorial, TutorialSection, MaterialType, Difficulty, TutorialStatus, AuthorType
+            knit_slug = "how-to-knit-beginner-guide-yarn"
+            existing_knit = (await db.execute(select(Tutorial).where(Tutorial.slug == knit_slug))).scalar_one_or_none()
+            if not existing_knit:
+                knit_tut = Tutorial(
+                    slug=knit_slug,
+                    title="How to Knit: Complete Beginner Guide with Recovered Yarn",
+                    description="Step-by-step beginner guide to knitting with recovered yarn, wool, and textile strips. Master casting on, the knit stitch, and casting off.",
+                    material_type=MaterialType.fabric,
+                    difficulty=Difficulty.beginner,
+                    estimated_duration_minutes=25,
+                    video_url="https://www.youtube.com/watch?v=p_R1UDsNOMk",
+                    materials_needed=["Reclaimed Wool / Textile Yarn", "Pair of Knitting Needles (5mm - 8mm)", "Scissors", "Tapestry Needle"],
+                    tags=["knitting", "fabric", "yarn", "diy", "craft", "upcycling"],
+                    author_id=admin_user.id,
+                    author_type=AuthorType.staff,
+                    status=TutorialStatus.published,
+                    view_count=650,
+                    published_at=now,
+                )
+                db.add(knit_tut)
+                await db.flush()
+                sec = TutorialSection(
+                    tutorial_id=knit_tut.id,
+                    section_id="intro",
+                    heading="Introduction to Knitting & Casting On",
+                    body_markdown="Knitting is one of the most rewarding upcycling skills. In this video, you will learn how to turn recovered wool skeins and fabric strips into warm winter beanies, scarves, and coasters.",
+                    order_index=1,
+                    video_id="https://www.youtube.com/watch?v=p_R1UDsNOMk",
+                )
+                db.add(sec)
+
+            await db.commit()
+            logger.info("Marketplace listings and Reva Learn tutorials checked & synchronized successfully.")
     except Exception as exc:
         logger.warning("Startup seeding notice (non-blocking): %s", exc)
 

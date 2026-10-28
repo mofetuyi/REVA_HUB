@@ -195,7 +195,7 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
             </button>
 
             {/* Header */}
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-full bg-cream-100 flex items-center justify-center">
                 <svg className="w-6 h-6" viewBox="0 0 24 24">
                   <path
@@ -218,18 +218,10 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
               </div>
               <div>
                 <h3 className="font-display font-bold text-base text-dark-900">
-                  {mode === 'signup' ? 'Create Reva Hub Account' : 'Sign in with your Google Account'}
+                  {mode === 'signup' ? 'Sign up with Google' : 'Sign in with Google'}
                 </h3>
-                <p className="text-xs text-dark-500">Fast, pre-verified sign in</p>
+                <p className="text-xs text-dark-500">Choose your Google Account to continue to Reva Hub</p>
               </div>
-            </div>
-
-            {/* Verified badge notice */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4 flex items-start gap-2.5 text-xs text-emerald-900">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <p>
-                <strong>Google Verified Identity:</strong> Automatically pre-verifies your email and unlocks instant trading and order access on Reva Hub.
-              </p>
             </div>
 
             {/* Native Google One-Tap / Button container */}
@@ -240,7 +232,7 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
                 <div className="w-full border-t border-cream-200" />
               </div>
               <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-                <span className="bg-white px-2 text-dark-400 font-semibold">Or enter your Google Account details</span>
+                <span className="bg-white px-2 text-dark-400 font-semibold">Or enter your Google Account email</span>
               </div>
             </div>
 
@@ -248,14 +240,14 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
             <form onSubmit={handleManualGoogleSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-dark-700 mb-1">
-                  Your Google Email Address *
+                  Google Email Address *
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-dark-400 absolute left-3 top-2.5" />
                   <input
                     type="email"
                     required
-                    placeholder="e.g. mofetuyi@gmail.com"
+                    placeholder="e.g. name@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 border border-cream-300 rounded-xl text-sm text-dark-900 bg-cream-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gold-400"
@@ -265,7 +257,7 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
 
               <div>
                 <label className="block text-xs font-semibold text-dark-700 mb-1">
-                  Full Name (as on your Google Account)
+                  Your Name
                 </label>
                 <div className="relative">
                   <UserIcon className="w-4 h-4 text-dark-400 absolute left-3 top-2.5" />
@@ -284,8 +276,7 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
                 disabled={isLoading}
                 className="w-full py-2.5 px-4 bg-dark-900 hover:bg-dark-800 text-cream-50 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 mt-2"
               >
-                <Sparkles className="w-3.5 h-3.5 text-gold-400" />
-                <span>{isLoading ? 'Verifying with Google...' : 'Sign In with This Google Account'}</span>
+                <span>{isLoading ? 'Signing In...' : 'Continue with Google Account'}</span>
               </button>
             </form>
           </div>

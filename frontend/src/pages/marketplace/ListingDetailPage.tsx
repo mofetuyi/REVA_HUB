@@ -121,7 +121,7 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
   const [paymentConfirmed, setPaymentConfirmed] = React.useState(false)
 
   const totalAmount = (listing.price_ngn || 0) * (quantity || 1)
-  const paystackUrl = "https://paystack.shop/pay/13c70vrnsm"
+  const paystackUrl = `https://paystack.shop/pay/13c70vrnsm?amount=${encodeURIComponent(totalAmount)}&price=${encodeURIComponent(totalAmount)}&product=${encodeURIComponent(listing.title)}&name=${encodeURIComponent(user?.name || '')}&email=${encodeURIComponent(user?.email || '')}&phone=${encodeURIComponent(buyerPhone || user?.phone || '')}&reva_id=${encodeURIComponent(user?.reva_id || '')}`
 
   const checkoutMutation = useMutation({
     mutationFn: () => api.post('/orders/checkout', {
@@ -263,7 +263,7 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
             onClick={() => setPaymentConfirmed(true)}
             className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
-            <span>Pay {formatNGN(totalAmount)} on Paystack</span>
+            <span>Pay {formatNGN(totalAmount)} on Paystack (Price Autofilled)</span>
             <span>↗</span>
           </a>
           <label className="flex items-center gap-2 text-xs text-dark-700 cursor-pointer pt-1">

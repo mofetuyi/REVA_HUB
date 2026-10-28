@@ -152,6 +152,8 @@ export default function PremiumPage() {
 
   const revaId = user?.reva_id || (user?.id ? `REVA-${user.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}` : 'REVA-MEMBER01')
 
+  const paystackPremiumUrl = `https://paystack.shop/pay/13c70vrnsm?reva_id=${encodeURIComponent(revaId)}&name=${encodeURIComponent(user?.name || '')}&email=${encodeURIComponent(user?.email || '')}&phone=${encodeURIComponent(user?.phone || '')}&plan=1_month_premium`
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
     setCopied(true)
@@ -160,11 +162,6 @@ export default function PremiumPage() {
   }
 
   const handleOpenActivation = () => {
-    if (!isAuthenticated) {
-      toast('Please log in or create an account to activate Premium', { icon: '🔒' })
-      navigate('/login')
-      return
-    }
     setShowModal(true)
   }
 
@@ -446,30 +443,27 @@ export default function PremiumPage() {
             </div>
 
             <div className="space-y-3">
-              <button
-                type="button"
-                disabled={loading}
+              <a
+                href={paystackPremiumUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={handleActivateOneMonth}
-                className="w-full py-3 px-4 bg-gold-500 hover:bg-gold-400 text-dark-900 font-bold text-sm rounded-xl transition-all shadow-lg shadow-gold-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                className="w-full py-3 px-4 bg-gold-500 hover:bg-gold-400 text-dark-900 font-bold text-sm rounded-xl transition-all shadow-lg shadow-gold-500/25 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {loading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-                <span>{loading ? 'Activating Account...' : 'Activate 1 Month on this Account'}</span>
-              </button>
+                <Sparkles className="w-4 h-4" />
+                <span>Pay on Paystack (Autofills Name & Reva ID)</span>
+                <ExternalLink className="w-4 h-4" />
+              </a>
 
-              <div className="text-center pt-2">
-                <a
-                  href={`https://paystack.shop/pay/reva?reva_id=${encodeURIComponent(revaId)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-cream-400 hover:text-gold-400 inline-flex items-center gap-1 transition-colors underline"
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={handleActivateOneMonth}
+                  disabled={loading}
+                  className="text-xs text-cream-400 hover:text-gold-400 underline cursor-pointer"
                 >
-                  Pay via Paystack Shop (autofills Reva ID)
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                  Already paid? Click to sync 1 month activation
+                </button>
               </div>
             </div>
           </div>

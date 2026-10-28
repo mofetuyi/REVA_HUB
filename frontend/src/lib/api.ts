@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle 401 – try to refresh, then redirect
+// Handle 401 – try to refresh without disruptively kicking users out of public pages
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -36,12 +36,13 @@ api.interceptors.response.use(
           if (original.headers) original.headers.Authorization = `Bearer ${newToken}`
           return api(original)
         } catch {
-          useAuthStore.getState().logout()
-          window.location.href = '/login'
+          // Only redirect if explicitly on a private account management route
+          const path = window.location.pathname
+          if (path.startsWith('/admin') || path.startsWith('/my-') || path.startsWith('/settings') || path.startsWith('/staff/dashboard')) {
+            useAuthStore.getState().logout()
+            window.location.href = '/login'
+          }
         }
-      } else {
-        useAuthStore.getState().logout()
-        window.location.href = '/login'
       }
     }
     return Promise.reject(error)

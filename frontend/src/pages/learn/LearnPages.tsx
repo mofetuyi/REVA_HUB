@@ -18,6 +18,24 @@ import { TutorStudio } from './TutorStudio'
 // ── Default Tutorials Fallback (Guarantees Reva Learn is never blank) ──────
 const DEFAULT_SAMPLE_TUTORIALS: Tutorial[] = [
   {
+    id: 'tut-knit-1',
+    slug: 'how-to-knit-beginner-guide-yarn',
+    title: 'How to Knit: Complete Beginner Guide with Recovered Yarn',
+    description: 'Learn step-by-step how to cast on, knit, and bind off using recovered wool and textile yarn.',
+    material_type: 'fabric',
+    difficulty: 'beginner',
+    estimated_duration_minutes: 25,
+    rating_average: 5.0,
+    rating_count: 34,
+    status: 'published',
+    author_type: 'staff',
+    view_count: 850,
+    video_url: 'https://www.youtube.com/watch?v=p_R1UDsNOMk',
+    materials_needed: ['Reclaimed Wool / Textile Yarn', 'Pair of Knitting Needles (5mm - 8mm)', 'Scissors', 'Tapestry Needle'],
+    created_at: new Date().toISOString(),
+    tags: ['knitting', 'fabric', 'yarn', 'craft', 'upcycling'],
+  },
+  {
     id: 'tut-1',
     slug: 'upcycled-plastic-planters',
     title: 'Transforming PET Bottles into Self-Watering Planters',
@@ -205,10 +223,10 @@ export function LearnHomePage() {
                 <button
                   type="button"
                   onClick={() => setLearnMode('tutor')}
-                  className="border border-cream-400/40 hover:bg-white/10 text-cream-100 font-semibold px-6 py-3 rounded-xl transition-colors cursor-pointer flex items-center gap-2"
+                  className="bg-gold-500 hover:bg-gold-400 text-dark-900 font-bold px-6 py-3 rounded-xl transition-colors cursor-pointer flex items-center gap-2 shadow-sm"
                 >
-                  <Video className="w-4 h-4 text-gold-400" />
-                  <span>Become a Tutor</span>
+                  <Video className="w-4 h-4 text-dark-900" />
+                  <span>Upload Video Tutorial</span>
                 </button>
               </div>
             </div>

@@ -196,7 +196,7 @@ async def google_auth(
             kyc_status=KYCStatus.verified,
             current_mode=UserMode.buyer,
             is_buyer=True,
-            is_seller=False,
+            is_seller=True,
             is_staff=False,
             is_admin=False,
             state="Lagos",
