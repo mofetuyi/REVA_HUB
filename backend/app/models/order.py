@@ -139,7 +139,7 @@ class OrderEvent(Base):
     event_type = Column(String(100), nullable=False)
     actor_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     description = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True)
+    metadata_ = Column("metadata", JSON, nullable=True)
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -148,3 +148,8 @@ class OrderEvent(Base):
 
     order = relationship("Order", back_populates="events")
     actor = relationship("User")
+
+    def __init__(self, **kwargs):
+        if "metadata" in kwargs:
+            kwargs["metadata_"] = kwargs.pop("metadata")
+        super().__init__(**kwargs)

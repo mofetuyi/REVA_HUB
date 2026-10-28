@@ -42,7 +42,7 @@ async def _add_event(db: AsyncSession, order: Order, event_type: str, actor_id, 
         event_type=event_type,
         actor_id=actor_id,
         description=description,
-        metadata=meta,
+        metadata_=meta,
     )
     db.add(event)
 

@@ -127,7 +127,7 @@ async def payment_webhook(
             order_id=order.id,
             event_type="funded",
             description=f"Payment received via {settings.PAYMENT_PROVIDER}. Ref: {reference}",
-            metadata={"payment_reference": reference, "provider": settings.PAYMENT_PROVIDER},
+            metadata_={"payment_reference": reference, "provider": settings.PAYMENT_PROVIDER},
         )
         db.add(event_log)
         await db.commit()
@@ -151,7 +151,7 @@ async def payment_webhook(
                 order_id=order.id,
                 event_type="payment_failed",
                 description="Payment failed. Buyer may retry.",
-                metadata={"reference": reference},
+                metadata_={"reference": reference},
             )
             db.add(event_log)
             await db.commit()
