@@ -385,6 +385,15 @@ export default function ListingDetailPage() {
           <div>
             <div className="flex flex-wrap gap-2 mb-2">
               <span className="badge bg-dark-800 text-cream-50">{category?.icon} {category?.label}</span>
+              {listing.product_group === 'upcycled_products' ? (
+                <span className="badge bg-gold-500 text-brandGreen-950 font-bold border border-gold-300">
+                  ✨ Upcycled Product Group
+                </span>
+              ) : (
+                <span className="badge bg-brandGreen-900 text-white font-bold border border-gold-500/30">
+                  🪵 Raw Materials Group
+                </span>
+              )}
               <StatusBadge status={listing.condition} />
             </div>
             <h1 className="text-2xl font-display font-bold text-dark-900">{listing.title}</h1>

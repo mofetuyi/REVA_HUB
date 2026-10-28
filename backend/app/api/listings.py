@@ -106,6 +106,7 @@ def _listing_to_dict(listing: Listing, include_seller: bool = False) -> dict:
         "condition": _val(listing.condition),
         "condition_notes": listing.condition_notes,
         "price_ngn": float(listing.price_ngn) if listing.price_ngn is not None else 0.0,
+        "product_group": getattr(listing, "product_group", None) or ("upcycled_products" if _val(listing.category) == "circular_products" or any(kw in (listing.title or "").lower() for kw in ["furniture", "journal", "tote bag", "refurbished"]) else "raw_materials"),
         "state": getattr(listing, "state", "Lagos") or "Lagos",
         "lga": listing.lga or "Lagos",
         "pickup_address": listing.pickup_address,
@@ -263,6 +264,7 @@ async def create_listing(
 @router.get("")
 async def browse_listings(
     category: Optional[ListingCategory] = None,
+    group: Optional[str] = None,
     lga: Optional[str] = None,
     price_min: Optional[float] = None,
     price_max: Optional[float] = None,
@@ -282,6 +284,9 @@ async def browse_listings(
             Listing.moderation_status == ModerationStatus.approved,
             Listing.expires_at > datetime.now(timezone.utc),
         ]
+
+        if group in ["raw_materials", "upcycled_products"]:
+            filters.append(Listing.product_group == group)
 
         if category:
             filters.append(Listing.category == category)

@@ -158,22 +158,6 @@ export default function SignupPage() {
         ))}
       </div>
 
-      {/* ── 1-Click Google Sign Up (Pre-verified) ── */}
-      {step === 1 && (
-        <div className="space-y-4 mb-5">
-          <GoogleAuthButton mode="signup" redirectTo="/" />
-
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-cream-200" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#FAF8F5] px-3 text-dark-400 font-medium">or register with phone</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {step === 1 && (
         <form onSubmit={form1.handleSubmit(onStep1)} className="space-y-4">
           <Input

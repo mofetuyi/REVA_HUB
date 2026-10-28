@@ -67,6 +67,7 @@ class Listing(Base):
     slug = Column(String(300), unique=True, nullable=False, index=True)
 
     category = Column(Enum(ListingCategory, native_enum=False), nullable=False)
+    product_group = Column(String(50), nullable=False, default="raw_materials")
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
 

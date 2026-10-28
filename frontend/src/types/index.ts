@@ -129,6 +129,7 @@ export interface Listing {
   id: string;
   slug: string;
   category: ListingCategory;
+  product_group?: 'raw_materials' | 'upcycled_products';
   title: string;
   description: string;
   quantity: number;

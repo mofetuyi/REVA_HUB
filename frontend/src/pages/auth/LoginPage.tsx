@@ -75,21 +75,7 @@ export default function LoginPage() {
     <div className="animate-fade-in">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-display font-bold text-dark-900">Log in to Reva Hub</h1>
-        <p className="text-dark-600 mt-1 text-sm">Welcome back</p>
-      </div>
-
-      {/* ── 1-Click Google Sign In (Pre-verified) ── */}
-      <div className="space-y-4 mb-5">
-        <GoogleAuthButton mode="signin" redirectTo={from} />
-
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-cream-200" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-[#FAF8F5] px-3 text-dark-400 font-medium">or log in with phone</span>
-          </div>
-        </div>
+        <p className="text-dark-600 mt-1 text-sm">Welcome back to Lagos recovered materials marketplace</p>
       </div>
 
       <form onSubmit={handleSubmit((d) => loginMutation.mutate(d))} className="space-y-4">

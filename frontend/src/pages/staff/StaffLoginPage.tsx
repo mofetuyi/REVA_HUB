@@ -12,7 +12,15 @@ export default function StaffLoginPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
-  const { login } = useAuthStore()
+  const { login, logout } = useAuthStore()
+
+  React.useEffect(() => {
+    // Clear any stale regular or expired tokens so staff login always starts clean
+    const current = useAuthStore.getState().user
+    if (!current?.is_staff && !current?.is_admin) {
+      logout()
+    }
+  }, [logout])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,9 +38,11 @@ export default function StaffLoginPage() {
         password,
       })
 
-      // Fetch user profile to verify staff access server-side
+      const newAccessToken = res.data.access_token
+
+      // Fetch user profile to verify staff access server-side using the fresh token
       const userRes = await api.get('/auth/me', {
-        headers: { Authorization: `Bearer ${res.data.access_token}` },
+        headers: { Authorization: `Bearer ${newAccessToken}` },
       })
 
       const user = userRes.data

@@ -268,7 +268,7 @@ export function TutorStudio({ onTutorialCreated }: TutorStudioProps) {
         <div className="space-y-1.5">
           <h2 className="text-2xl font-display font-bold text-dark-900">Sign in to Access Tutor Mode</h2>
           <p className="text-xs text-dark-500 max-w-md mx-auto">
-            Ordinary accounts can become Tutors on Reva Hub for free! Sign in with your Google account or phone to apply for video posting permission.
+            Ordinary accounts can become Tutors on Reva Hub for free! Sign in with your phone number to apply for video posting permission.
           </p>
         </div>
         <div className="flex gap-3 justify-center pt-2">
@@ -276,7 +276,7 @@ export function TutorStudio({ onTutorialCreated }: TutorStudioProps) {
             to="/login"
             className="bg-gold-500 hover:bg-gold-400 text-dark-900 font-bold px-6 py-2.5 rounded-xl text-xs transition-colors"
           >
-            Log In / Continue with Google
+            Log In to Account
           </Link>
           <Link
             to="/signup"

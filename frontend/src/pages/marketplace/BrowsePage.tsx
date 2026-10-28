@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
 import { Button } from '../../components/ui/Button'
 import { StatusBadge, EmptyState, Spinner, VerifiedSellerBadge } from '../../components/ui/index'
-import { MATERIAL_CATEGORIES, LAGOS_LGAS, LISTING_CONDITIONS, COLLECTION_METHODS, formatNGN, formatRelativeDate } from '../../lib/nigeriaData'
+import { MATERIAL_CATEGORIES, RAW_MATERIAL_CATEGORIES, UPCYCLED_PRODUCT_CATEGORIES, LAGOS_LGAS, LISTING_CONDITIONS, COLLECTION_METHODS, formatNGN, formatRelativeDate } from '../../lib/nigeriaData'
 import type { Listing, PaginatedResponse } from '../../types'
 
 function ListingCardSkeleton() {
@@ -41,9 +41,18 @@ function ListingCard({ listing }: { listing: Listing }) {
             {category?.icon || '📦'}
           </div>
         )}
-        <span className="absolute top-2 left-2 badge bg-dark-800 text-cream-50 text-xs">
+        <span className="absolute top-2 left-2 badge bg-dark-900/90 text-cream-50 text-xs backdrop-blur-xs">
           {category?.icon} {category?.label}
         </span>
+        {listing.product_group === 'upcycled_products' ? (
+          <span className="absolute top-2 right-2 badge bg-gold-500 text-brandGreen-950 font-bold text-[11px] border border-gold-300 shadow-sm">
+            ✨ UPCYCLED
+          </span>
+        ) : (
+          <span className="absolute top-2 right-2 badge bg-brandGreen-900 text-white font-bold text-[11px] border border-gold-500/30 shadow-sm">
+            🪵 RAW MATERIAL
+          </span>
+        )}
       </div>
       <div className="p-4">
         <h3 className="font-semibold text-dark-900 truncate group-hover:text-gold-600 transition-colors">
@@ -78,6 +87,7 @@ export default function BrowsePage() {
   const [filterOpen, setFilterOpen] = React.useState(false)
 
   const page = Number(params.get('page') || 1)
+  const group = (params.get('group') as 'raw_materials' | 'upcycled_products') || undefined
   const category = params.get('category') || undefined
   const lga = params.get('lga') || undefined
   const condition = params.get('condition') || undefined
@@ -87,10 +97,10 @@ export default function BrowsePage() {
   const priceMax = params.get('price_max') || undefined
 
   const { data, isLoading } = useQuery<PaginatedResponse<Listing>>({
-    queryKey: ['listings', { page, category, lga, condition, search, sort, priceMin, priceMax }],
+    queryKey: ['listings', { page, group, category, lga, condition, search, sort, priceMin, priceMax }],
     queryFn: async () => {
       const res = await api.get('/listings', {
-        params: { page, page_size: 20, category, lga, condition, search, sort, price_min: priceMin, price_max: priceMax },
+        params: { page, page_size: 20, group, category, lga, condition, search, sort, price_min: priceMin, price_max: priceMax },
       })
       return res.data
     },
@@ -140,6 +150,111 @@ export default function BrowsePage() {
         </div>
       </div>
 
+      {/* ── Two-Group Switcher: Raw Materials vs Upcycled Products ── */}
+      <div className="bg-white rounded-2xl p-2.5 sm:p-3.5 border border-cream-200 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="inline-flex p-1 bg-cream-100 rounded-xl gap-1">
+            <button
+              onClick={() => {
+                const next = new URLSearchParams(params)
+                next.delete('group')
+                next.delete('category')
+                next.set('page', '1')
+                setParams(next)
+              }}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                !group
+                  ? 'bg-brandGreen-950 text-white shadow-sm'
+                  : 'text-dark-700 hover:text-dark-900 hover:bg-white/70'
+              }`}
+            >
+              🌟 All Items ({data?.total ?? 14})
+            </button>
+            <button
+              onClick={() => {
+                const next = new URLSearchParams(params)
+                next.set('group', 'raw_materials')
+                next.delete('category')
+                next.set('page', '1')
+                setParams(next)
+              }}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                group === 'raw_materials'
+                  ? 'bg-brandGreen-900 text-white shadow-sm border border-gold-500/40'
+                  : 'text-dark-700 hover:text-dark-900 hover:bg-white/70'
+              }`}
+            >
+              <span>🪵</span> Raw Materials Group
+            </button>
+            <button
+              onClick={() => {
+                const next = new URLSearchParams(params)
+                next.set('group', 'upcycled_products')
+                next.delete('category')
+                next.set('page', '1')
+                setParams(next)
+              }}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                group === 'upcycled_products'
+                  ? 'bg-gold-500 text-brandGreen-950 shadow-sm border border-gold-300'
+                  : 'text-dark-700 hover:text-dark-900 hover:bg-white/70'
+              }`}
+            >
+              <span>✨</span> Upcycled Products Group
+            </button>
+          </div>
+
+          <div className="text-xs font-medium text-dark-500 px-1">
+            {group === 'raw_materials' ? (
+              <span className="text-brandGreen-900">
+                🪵 <strong>Raw Materials</strong>: Sorted industrial bales, PET flakes, timber, scraps & raw feedstocks
+              </span>
+            ) : group === 'upcycled_products' ? (
+              <span className="text-gold-700">
+                ✨ <strong>Upcycled Products</strong>: Finished denim pouches, bucket bags, crate tables & restored furniture
+              </span>
+            ) : (
+              <span>Trading recovered raw materials and artisan upcycled products in Lagos</span>
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Category Chips based on Group */}
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar pt-1 border-t border-cream-100">
+          <button
+            onClick={() => setParam('category', undefined)}
+            className={`flex-shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+              !category
+                ? 'bg-dark-900 text-white border-dark-900'
+                : 'bg-white border-cream-200 text-dark-700 hover:border-gold-400'
+            }`}
+          >
+            All {group === 'raw_materials' ? 'Raw Materials' : group === 'upcycled_products' ? 'Upcycled Goods' : 'Categories'}
+          </button>
+          {(group === 'raw_materials'
+            ? RAW_MATERIAL_CATEGORIES
+            : group === 'upcycled_products'
+            ? UPCYCLED_PRODUCT_CATEGORIES
+            : MATERIAL_CATEGORIES
+          ).map((c) => (
+            <button
+              key={c.value}
+              onClick={() => setParam('category', c.value === category ? undefined : c.value)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                category === c.value
+                  ? group === 'upcycled_products'
+                    ? 'bg-gold-500 text-brandGreen-950 border-gold-400 shadow-xs'
+                    : 'bg-brandGreen-900 text-white border-brandGreen-950 shadow-xs'
+                  : 'bg-white border-cream-200 text-dark-700 hover:border-gold-400'
+              }`}
+            >
+              <span>{c.icon}</span>
+              <span>{c.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Search bar */}
       <div className="flex gap-3">
         <div className="relative flex-1">
@@ -176,25 +291,6 @@ export default function BrowsePage() {
           <option value="price_desc">Price ↓</option>
           <option value="most_viewed">Most viewed</option>
         </select>
-      </div>
-
-      {/* Material type quick-filter */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-        <button
-          onClick={() => setParam('category', undefined)}
-          className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-colors ${!category ? 'bg-dark-900 text-cream-50 border-dark-900' : 'bg-white border-cream-200 hover:border-gold-400'}`}
-        >
-          All
-        </button>
-        {MATERIAL_CATEGORIES.map((c) => (
-          <button
-            key={c.value}
-            onClick={() => setParam('category', category === c.value ? undefined : c.value)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-colors ${category === c.value ? 'bg-dark-900 text-cream-50 border-dark-900' : 'bg-white border-cream-200 hover:border-gold-400'}`}
-          >
-            {c.icon} {c.label}
-          </button>
-        ))}
       </div>
 
       {/* Expanded filter panel */}

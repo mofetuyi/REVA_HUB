@@ -11,11 +11,13 @@ export const api = axios.create({
   timeout: 30_000,
 })
 
-// Inject auth token
+// Inject auth token (preserve explicit Authorization header if provided)
 api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  if (!config.headers.Authorization) {
+    const token = useAuthStore.getState().accessToken
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
   }
   return config
 })
