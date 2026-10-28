@@ -296,8 +296,8 @@ async def signup(
         background_tasks.add_task(send_welcome_email, user)
 
     # Issue JWT tokens directly - no OTP or SMS verification code required
-    access_token = create_access_token(data={"sub": str(user.id), "phone": user.phone})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    access_token = create_access_token(str(user.id), {"phone": user.phone})
+    refresh_token = create_refresh_token(str(user.id))
 
     return {
         "message": "Account created successfully.",
