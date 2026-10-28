@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.api import auth, listings, offers, orders, webhooks, reviews, admin, learn, gemini, compliance, staff, price_refs
+from app.api import auth, listings, offers, orders, webhooks, reviews, admin, learn, gemini, compliance, staff, price_refs, internal
 
 # Configure logging
 logging.basicConfig(
@@ -109,6 +109,7 @@ app.include_router(gemini.router)
 app.include_router(compliance.router)
 app.include_router(staff.router)
 app.include_router(price_refs.router)
+app.include_router(internal.router)
 
 
 # ── Single-domain Static Assets & SPA Fallback ───────────────────────────────

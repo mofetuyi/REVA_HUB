@@ -1,6 +1,6 @@
 """FastAPI dependencies for authentication and authorization."""
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,7 +12,7 @@ from app.core.security import decode_token
 from app.core.config import settings
 
 import time
-from typing import Any
+from typing import Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -127,12 +127,44 @@ async def get_redis():
     return _cache_instance
 
 
+async def verify_internal_key(
+    x_internal_key: Optional[str] = Header(None, alias="X-Internal-Key"),
+) -> bool:
+    """Validate X-Internal-Key header for n8n automations & internal workflows."""
+    if not x_internal_key or x_internal_key != settings.INTERNAL_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing X-Internal-Key header",
+            headers={"WWW-Authenticate": "X-Internal-Key"},
+        )
+    return True
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    x_internal_key: Optional[str] = Header(None, alias="X-Internal-Key"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Require a valid JWT access token. Returns the User ORM object."""
+    """Require a valid JWT access token or valid X-Internal-Key for automation."""
     from app.models.user import User  # avoid circular import
+
+    # Support n8n and internal automation via X-Internal-Key header
+    if x_internal_key and x_internal_key == settings.INTERNAL_API_KEY:
+        result = await db.execute(select(User).where(User.is_admin == True).limit(1))
+        admin_user = result.scalar_one_or_none()
+        if admin_user:
+            return admin_user
+        # Return fallback system automation user if no admin exists in DB yet
+        return User(
+            name="n8n System Automation",
+            email="automation@reva-hub.internal",
+            is_admin=True,
+            is_staff=True,
+            is_active=True,
+            is_buyer=True,
+            is_seller=True,
+            current_mode="seller",
+        )
 
     if not credentials:
         raise HTTPException(

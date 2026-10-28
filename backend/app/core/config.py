@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # ── Application ──────────────────────────────────────────────────────────
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "insecure-change-in-production"
+    INTERNAL_API_KEY: str = "mofeoluwa123456789"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://reva-hub.onrender.com"
     FRONTEND_URL: str = "http://localhost:5173"
 
