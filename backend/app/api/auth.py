@@ -281,7 +281,7 @@ async def signup(
         is_seller=False,
         is_phone_verified=True,
         is_email_verified=True if req.email else False,
-        kyc_status="verified",
+        kyc_status=KYCStatus.verified,
         current_mode=UserMode.buyer,
         policy_version_accepted=settings.CURRENT_POLICY_VERSION,
         policy_accepted_at=datetime.now(timezone.utc),
