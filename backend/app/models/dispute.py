@@ -36,11 +36,11 @@ class Dispute(Base):
     order_id = Column(UUID(as_uuid=True), ForeignKey("orders.id"), nullable=False, unique=True, index=True)
     raised_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
-    reason = Column(Enum(DisputeReason, name="dispute_reason_enum"), nullable=False)
+    reason = Column(Enum(DisputeReason, native_enum=False), nullable=False)
     description = Column(Text, nullable=False)
 
     status = Column(
-        Enum(DisputeStatus, name="dispute_status_enum"),
+        Enum(DisputeStatus, native_enum=False),
         nullable=False,
         default=DisputeStatus.open,
         index=True,

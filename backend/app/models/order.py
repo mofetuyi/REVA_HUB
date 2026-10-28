@@ -76,7 +76,7 @@ class Order(Base):
     escrow_reference = Column(String(255), nullable=True)
 
     status = Column(
-        Enum(OrderStatus, name="order_status_enum"),
+        Enum(OrderStatus, native_enum=False),
         nullable=False,
         default=OrderStatus.created,
         index=True,
@@ -93,7 +93,7 @@ class Order(Base):
     seller_payout_status = Column(String(50), nullable=True, default="pending")
 
     collection_arranged_by = Column(
-        Enum(CollectionArranger, name="collection_arranger_enum"),
+        Enum(CollectionArranger, native_enum=False),
         nullable=True,
         default=CollectionArranger.tbd,
     )

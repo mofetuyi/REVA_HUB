@@ -66,14 +66,14 @@ class Listing(Base):
     seller_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     slug = Column(String(300), unique=True, nullable=False, index=True)
 
-    category = Column(Enum(ListingCategory, name="listing_category_enum"), nullable=False)
+    category = Column(Enum(ListingCategory, native_enum=False), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
 
     quantity = Column(Numeric(12, 3), nullable=False)
-    unit = Column(Enum(ListingUnit, name="listing_unit_enum"), nullable=False)
+    unit = Column(Enum(ListingUnit, native_enum=False), nullable=False)
 
-    condition = Column(Enum(ListingCondition, name="listing_condition_enum"), nullable=False)
+    condition = Column(Enum(ListingCondition, native_enum=False), nullable=False)
     condition_notes = Column(Text, nullable=True)
 
     price_ngn = Column(Numeric(15, 2), nullable=False)
@@ -85,20 +85,20 @@ class Listing(Base):
     longitude = Column(Float, nullable=True)
 
     collection_method = Column(
-        Enum(CollectionMethod, name="collection_method_enum"),
+        Enum(CollectionMethod, native_enum=False),
         nullable=False,
         default=CollectionMethod.buyer_arranges,
     )
 
     # Status and moderation
     status = Column(
-        Enum(ListingStatus, name="listing_status_enum"),
+        Enum(ListingStatus, native_enum=False),
         nullable=False,
         default=ListingStatus.active,
         index=True,
     )
     moderation_status = Column(
-        Enum(ModerationStatus, name="moderation_status_enum"),
+        Enum(ModerationStatus, native_enum=False),
         nullable=False,
         default=ModerationStatus.pending,
     )

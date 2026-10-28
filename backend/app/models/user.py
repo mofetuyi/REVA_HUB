@@ -42,7 +42,7 @@ class User(Base):
 
     # Account type
     account_type = Column(
-        Enum(AccountType, name="account_type_enum"),
+        Enum(AccountType, native_enum=False),
         nullable=False,
         default=AccountType.individual,
     )
@@ -59,7 +59,7 @@ class User(Base):
 
     # KYC
     kyc_status = Column(
-        Enum(KYCStatus, name="kyc_status_enum"),
+        Enum(KYCStatus, native_enum=False),
         nullable=False,
         default=KYCStatus.not_started,
     )
@@ -70,7 +70,7 @@ class User(Base):
 
     # Mode and roles
     current_mode = Column(
-        Enum(UserMode, name="user_mode_enum"),
+        Enum(UserMode, native_enum=False),
         nullable=False,
         default=UserMode.buyer,
     )

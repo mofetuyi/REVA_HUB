@@ -59,14 +59,14 @@ class Report(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     reporter_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    target_type = Column(Enum(ReportTargetType, name="report_target_type_enum"), nullable=False)
+    target_type = Column(Enum(ReportTargetType, native_enum=False), nullable=False)
     target_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    reason = Column(Enum(ReportReason, name="report_reason_enum"), nullable=False)
+    reason = Column(Enum(ReportReason, native_enum=False), nullable=False)
     description = Column(Text, nullable=False)
     evidence_urls = Column(JSON, nullable=True)
 
     status = Column(
-        Enum(ReportStatus, name="report_status_enum"),
+        Enum(ReportStatus, native_enum=False),
         nullable=False,
         default=ReportStatus.open,
         index=True,
@@ -97,9 +97,9 @@ class EnforcementAction(Base):
     admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=True)
 
-    level = Column(Enum(EnforcementLevel, name="enforcement_level_enum"), nullable=False)
+    level = Column(Enum(EnforcementLevel, native_enum=False), nullable=False)
     status = Column(
-        Enum(EnforcementStatus, name="enforcement_status_enum"),
+        Enum(EnforcementStatus, native_enum=False),
         nullable=False,
         default=EnforcementStatus.active,
     )

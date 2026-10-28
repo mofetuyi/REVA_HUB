@@ -56,20 +56,20 @@ class Tutorial(Base):
     title = Column(String(255), nullable=False)
     description = Column(String(255), nullable=False)  # < 255 chars as spec requires
 
-    material_type = Column(Enum(MaterialType, name="material_type_enum"), nullable=False)
+    material_type = Column(Enum(MaterialType, native_enum=False), nullable=False)
     material_subtypes = Column(JSON, nullable=True)  # list of strings
 
-    difficulty = Column(Enum(Difficulty, name="difficulty_enum"), nullable=False)
+    difficulty = Column(Enum(Difficulty, native_enum=False), nullable=False)
     estimated_duration_minutes = Column(Integer, nullable=False, default=30)
     tags = Column(JSON, nullable=True)  # list of strings
     video_url = Column(String(500), nullable=True)  # YouTube, Vimeo, or direct video URL
     materials_needed = Column(JSON, nullable=True)  # List of materials/tools e.g. ["PET Bottles", "Scissor"]
 
     author_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    author_type = Column(Enum(AuthorType, name="author_type_enum"), nullable=False, default=AuthorType.staff)
+    author_type = Column(Enum(AuthorType, native_enum=False), nullable=False, default=AuthorType.staff)
 
     status = Column(
-        Enum(TutorialStatus, name="tutorial_status_enum"),
+        Enum(TutorialStatus, native_enum=False),
         nullable=False,
         default=TutorialStatus.draft,
         index=True,
@@ -115,7 +115,7 @@ class TutorialSection(Base):
     image_alt = Column(String(500), nullable=True)
     image_caption = Column(Text, nullable=True)
 
-    video_platform = Column(Enum(VideoPlatform, name="video_platform_enum"), nullable=True)
+    video_platform = Column(Enum(VideoPlatform, native_enum=False), nullable=True)
     video_id = Column(String(100), nullable=True)
     video_start_time = Column(Integer, nullable=True)  # seconds
 
@@ -132,8 +132,8 @@ class SkillPath(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    material_type = Column(Enum(MaterialType, name="skill_path_material_type_enum"), nullable=False)
-    difficulty = Column(Enum(Difficulty, name="skill_path_difficulty_enum"), nullable=False)
+    material_type = Column(Enum(MaterialType, native_enum=False), nullable=False)
+    difficulty = Column(Enum(Difficulty, native_enum=False), nullable=False)
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     is_published = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
