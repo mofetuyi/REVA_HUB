@@ -31,11 +31,14 @@ class Settings(BaseSettings):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         elif url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        if "channel_binding=" in url:
-            import re
-            url = re.sub(r'[?&]channel_binding=[^&]+', '', url)
-            if '?' not in url and '&' in url:
-                url = url.replace('&', '?', 1)
+
+        # Remove libpq query parameters that break asyncpg (asyncpg expects ssl via connect_args)
+        import re
+        url = re.sub(r'[?&]channel_binding=[^&]+', '', url)
+        url = re.sub(r'[?&]sslmode=[^&]+', '', url)
+        url = re.sub(r'[?&]$', '', url)
+        if '?' not in url and '&' in url:
+            url = url.replace('&', '?', 1)
         return url
 
     # ── Redis ─────────────────────────────────────────────────────────────────
