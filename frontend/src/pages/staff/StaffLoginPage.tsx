@@ -45,34 +45,6 @@ export default function StaffLoginPage() {
       toast.success(`Welcome to Staff Portal, ${user.name}`)
       navigate('/staff/dashboard')
     } catch (err: any) {
-      // Seamless demo fallback if backend is offline or static deploy
-      const is404OrNetwork = err?.response?.status === 404 || !err?.response
-      if (is404OrNetwork && (phone.length >= 3 || password.length >= 3)) {
-        const demoStaff = {
-          id: 'usr_staff_ops',
-          phone: '+2348011223344',
-          name: 'Operations Personnel',
-          email: 'staff@revahub.ng',
-          account_type: 'individual' as const,
-          state: 'Lagos',
-          lga: 'Ikeja',
-          current_mode: 'buyer' as const,
-          is_buyer: true,
-          is_seller: true,
-          is_admin: true,
-          is_staff: true,
-          is_premium: true,
-          is_email_verified: true,
-          is_phone_verified: true,
-          reva_id: 'REVA-STAFF001',
-          kyc_status: 'verified' as const,
-          created_at: new Date().toISOString(),
-        }
-        login({ access_token: 'demo_staff_token', refresh_token: 'demo_refresh' }, demoStaff)
-        toast.success('Signed in to Staff Operations Dashboard (Demo Mode)')
-        navigate('/staff/dashboard')
-        return
-      }
       toast.error(extractError(err))
     } finally {
       setIsLoading(false)

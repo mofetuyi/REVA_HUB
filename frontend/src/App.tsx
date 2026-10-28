@@ -98,6 +98,7 @@ import { LearnHomePage, TutorialBrowsePage, TutorialDetailPage } from './pages/l
 import SkillPathsPage from './pages/learn/SkillPathsPage'
 import SkillPathDetailPage from './pages/learn/SkillPathDetailPage'
 import MyLearningPage from './pages/learn/MyLearningPage'
+import NotFoundPage from './pages/common/NotFoundPage'
 
 // ── AI ────────────────────────────────────────────────────────────────────────
 import AIAssistantPage from './pages/ai/AIAssistantPage'
@@ -159,6 +160,8 @@ export default function App() {
           <Route path="kyc" element={<PrivateRoute><KYCPage /></PrivateRoute>} />
           <Route path="learn/my-learning" element={<PrivateRoute><MyLearningPage /></PrivateRoute>} />
           <Route path="ai" element={<PrivateRoute><AIAssistantPage /></PrivateRoute>} />
+          {/* ── Fallback 404 Page ──────────────────────────────────────────────── */}
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
 
         {/* ── Auth layout ───────────────────────────────────────────────────── */}
@@ -186,9 +189,6 @@ export default function App() {
         <Route element={<StaffRoute><AdminLayout /></StaffRoute>}>
           <Route path="staff/dashboard" element={<StaffDashboardPage />} />
         </Route>
-
-        {/* ── Fallback ──────────────────────────────────────────────────────── */}
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   </ErrorBoundary>

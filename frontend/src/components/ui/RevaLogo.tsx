@@ -8,12 +8,18 @@ export function RevaLogoIcon({ className, useImage = true }: { className?: strin
 
   if (useImage && !imgError) {
     return (
-      <img
-        src="/logo.jpg"
-        alt="Reva Hub Logo"
-        className={clsx('w-10 h-10 object-contain rounded-full bg-dark-900 border border-gold-500/40 shadow-sm shrink-0', className)}
-        onError={() => setImgError(true)}
-      />
+      <picture className="shrink-0">
+        <source type="image/webp" srcSet="/logo.webp" />
+        <img
+          src="/logo.jpg"
+          alt="Reva Hub Logo"
+          width="40"
+          height="40"
+          loading="lazy"
+          className={clsx('w-10 h-10 object-contain rounded-full bg-dark-900 border border-gold-500/40 shadow-sm shrink-0', className)}
+          onError={() => setImgError(true)}
+        />
+      </picture>
     )
   }
 

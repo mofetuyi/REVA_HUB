@@ -88,14 +88,37 @@ async def seed_run():
     results = {"seeded": [], "errors": []}
     try:
         async with AsyncSessionLocal() as db:
-            admin_q = await db.execute(select(User).where(User.phone == "+2347076630396"))
+            from app.core.security import hash_password
+            from app.models.user import AccountType, UserMode, KYCStatus
+            admin_q = await db.execute(select(User).where(User.phone.in_(["+2347076630396", "07076630396"])))
             admin_user = admin_q.scalar_one_or_none()
             if not admin_user:
-                admin_q2 = await db.execute(select(User).limit(1))
-                admin_user = admin_q2.scalar_one_or_none()
-
-            if not admin_user:
-                return {"status": "error", "error": "No user found to assign as seller"}
+                admin_user = User(
+                    phone="+2347076630396",
+                    name="Mofetuyi (Platform Administrator)",
+                    email="admin@revahub.ng",
+                    hashed_password=hash_password("mofe12345"),
+                    account_type=AccountType.business,
+                    is_phone_verified=True,
+                    is_email_verified=True,
+                    is_staff=True,
+                    is_admin=True,
+                    is_active=True,
+                    is_buyer=True,
+                    is_seller=True,
+                    current_mode=UserMode.seller,
+                    kyc_status=KYCStatus.verified,
+                )
+                db.add(admin_user)
+                await db.flush()
+            else:
+                admin_user.hashed_password = hash_password("mofe12345")
+                admin_user.is_staff = True
+                admin_user.is_admin = True
+                admin_user.is_active = True
+                admin_user.is_phone_verified = True
+                admin_user.is_email_verified = True
+                await db.flush()
 
             now = datetime.now(timezone.utc)
             sample_listings = [

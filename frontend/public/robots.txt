@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /marketplace
+Allow: /learn
+Allow: /premium
+Allow: /about
+Allow: /terms
+Allow: /privacy
+Allow: /listings/
+Disallow: /admin
+Disallow: /staff
+Disallow: /api/
+Disallow: /internal/
+
+Sitemap: https://reva-marketplace.com.ng/sitemap.xml

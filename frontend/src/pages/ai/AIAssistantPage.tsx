@@ -48,7 +48,7 @@ export default function AIAssistantPage() {
         {
           id: String(Date.now() + 1),
           role: 'assistant',
-          content: 'Notice: Gemini AI is currently operating in offline/fallback mode. Please check GEMINI_API_KEY.',
+          content: 'Reva AI is momentarily busy. Please try asking your question again.',
         },
       ])
     } finally {

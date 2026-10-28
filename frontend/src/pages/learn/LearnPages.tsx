@@ -603,7 +603,7 @@ export function TutorialDetailPage() {
                     </div>
                     {sec.image_url && (
                       <figure className="mt-4">
-                        <img src={sec.image_url} alt={sec.image_alt || sec.heading} className="rounded-xl w-full" />
+                        <img src={sec.image_url} alt={sec.image_alt || sec.heading} className="rounded-xl w-full" loading="lazy" />
                         {sec.image_caption && <figcaption className="text-xs text-dark-400 text-center mt-2">{sec.image_caption}</figcaption>}
                       </figure>
                     )}

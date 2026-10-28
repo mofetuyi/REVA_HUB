@@ -152,7 +152,7 @@ export default function PremiumPage() {
 
   const revaId = user?.reva_id || (user?.id ? `REVA-${user.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}` : 'REVA-MEMBER01')
 
-  const paystackPremiumUrl = `https://paystack.shop/pay/13c70vrnsm?reva_id=${encodeURIComponent(revaId)}&name=${encodeURIComponent(user?.name || '')}&email=${encodeURIComponent(user?.email || '')}&phone=${encodeURIComponent(user?.phone || '')}&plan=1_month_premium`
+  const paystackPremiumUrl = `https://paystack.shop/pay/reva?reva_id=${encodeURIComponent(revaId)}&name=${encodeURIComponent(user?.name || '')}&email=${encodeURIComponent(user?.email || '')}&phone=${encodeURIComponent(user?.phone || '')}&plan=1_month_premium`
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)

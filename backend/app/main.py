@@ -2,10 +2,11 @@
 
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
@@ -45,14 +46,14 @@ async def lifespan(app: FastAPI):
         from datetime import datetime, timezone, timedelta
 
         async with AsyncSessionLocal() as db:
-            admin_q = await db.execute(select(User).where(User.phone == "+2347076630396"))
+            admin_q = await db.execute(select(User).where(User.phone.in_(["+2347076630396", "07076630396"])))
             admin_user = admin_q.scalar_one_or_none()
             if not admin_user:
                 admin_user = User(
                     phone="+2347076630396",
                     name="Mofetuyi (Platform Administrator)",
                     email="admin@revahub.ng",
-                    hashed_password=hash_password("admin1234"),
+                    hashed_password=hash_password("mofe12345"),
                     account_type=AccountType.business,
                     is_phone_verified=True,
                     is_email_verified=True,
@@ -65,9 +66,17 @@ async def lifespan(app: FastAPI):
                     kyc_status=KYCStatus.verified,
                 )
                 db.add(admin_user)
-                await db.commit()
+            else:
+                admin_user.hashed_password = hash_password("mofe12345")
+                admin_user.is_staff = True
+                admin_user.is_admin = True
+                admin_user.is_active = True
+                admin_user.is_phone_verified = True
+                admin_user.is_email_verified = True
+            await db.commit()
+            if admin_user:
                 await db.refresh(admin_user)
-                logger.info("Auto-provisioned primary administrator account (+2347076630396)")
+            logger.info("Auto-provisioned and synced primary administrator account (+2347076630396 / mofe12345)")
 
             now = datetime.now(timezone.utc)
             sample_listings = [
@@ -269,10 +278,18 @@ app = FastAPI(
 )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
+PRIMARY_DOMAIN = "reva-marketplace.com.ng"
+allowed_origins = list(settings.allowed_origins_list) + [
+    f"https://{PRIMARY_DOMAIN}",
+    f"https://www.{PRIMARY_DOMAIN}",
+    f"http://{PRIMARY_DOMAIN}",
+    "https://reva-hub-q6pp.onrender.com",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.onrender\.com)(:\d+)?$",
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.onrender\.com|.*\.reva-marketplace\.com\.ng|reva-marketplace\.com\.ng|.*\.revahub\.ng)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -289,10 +306,42 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
+# ── Domain 301 Redirect & Security Headers Middleware ─────────────────────────
+@app.middleware("http")
+async def domain_redirect_and_security_middleware(request: Request, call_next):
+    host_header = request.headers.get("host", "").lower().split(":")[0]
+    raw_path = request.url.path
+
+    # Canonical 301 Redirect: redirect render domain or www to https://reva-marketplace.com.ng
+    # Keep /health, /docs, /openapi.json, internal automation, and X-Internal-Key passing through
+    is_exempt = (
+        raw_path in ["/health", "/docs", "/openapi.json", "/redoc"]
+        or raw_path.startswith("/internal")
+        or bool(request.headers.get("x-internal-key"))
+    )
+
+    if not is_exempt and host_header in ["reva-hub-q6pp.onrender.com", f"www.{PRIMARY_DOMAIN}", "www.revahub.ng"]:
+        query_suffix = f"?{request.url.query}" if request.url.query else ""
+        canonical_target = f"https://{PRIMARY_DOMAIN}{raw_path}{query_suffix}"
+        return RedirectResponse(url=canonical_target, status_code=status.HTTP_301_MOVED_PERMANENTLY)
+
+    response = await call_next(request)
+
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if host_header == PRIMARY_DOMAIN or request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    return response
+
+
 # ── Request logging middleware ────────────────────────────────────────────────
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    # Redact Authorization header from logs
     logger.info("→ %s %s", request.method, request.url.path)
     response = await call_next(request)
     logger.info("← %s %s [%s]", request.method, request.url.path, response.status_code)
@@ -304,6 +353,8 @@ async def log_requests(request: Request, call_next):
 async def health_check():
     return {
         "status": "ok",
+        "service": "Reva Hub API",
+        "domain": PRIMARY_DOMAIN,
         "environment": settings.ENVIRONMENT,
         "integrations": {
             "gemini": settings.gemini_configured,
@@ -315,6 +366,48 @@ async def health_check():
         },
         "escrow_auto_release_enabled": settings.ESCROW_AUTO_RELEASE_ENABLED,
     }
+
+
+# ── Dynamic SEO Endpoints (Robots.txt & Sitemap.xml) ──────────────────────────
+@app.get("/robots.txt", include_in_schema=False)
+async def get_robots_txt():
+    robots_content = f"""User-agent: *
+Allow: /
+Allow: /marketplace
+Allow: /learn
+Allow: /premium
+Allow: /about
+Allow: /terms
+Allow: /privacy
+Allow: /listings/
+Disallow: /admin
+Disallow: /staff
+Disallow: /api/
+Disallow: /internal/
+
+Sitemap: https://{PRIMARY_DOMAIN}/sitemap.xml
+"""
+    return Response(content=robots_content, media_type="text/plain")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def get_sitemap_xml():
+    sitemap_file = os.path.join(FRONTEND_DIST, "sitemap.xml")
+    if os.path.isfile(sitemap_file):
+        try:
+            with open(sitemap_file, "r", encoding="utf-8") as f:
+                return Response(content=f.read(), media_type="application/xml")
+        except Exception as e:
+            logger.warning("Error reading sitemap file: %s", e)
+
+    fallback_sitemap = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://{PRIMARY_DOMAIN}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://{PRIMARY_DOMAIN}/marketplace</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://{PRIMARY_DOMAIN}/learn</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://{PRIMARY_DOMAIN}/premium</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+</urlset>"""
+    return Response(content=fallback_sitemap, media_type="application/xml")
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -333,7 +426,7 @@ app.include_router(price_refs.router)
 app.include_router(internal.router)
 
 
-# ── Single-domain Static Assets & SPA Fallback ───────────────────────────────
+# ── Single-domain Static Assets, SSR Prerender & SPA Fallback ────────────────
 FRONTEND_DIST = os.environ.get(
     "FRONTEND_DIST",
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
@@ -344,13 +437,64 @@ if os.path.isdir(FRONTEND_DIST):
     if os.path.isdir(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
+    uploads_dir = os.path.join(FRONTEND_DIST, "uploads")
+    if os.path.isdir(uploads_dir):
+        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
         file_path = os.path.join(FRONTEND_DIST, full_path)
         if full_path and os.path.isfile(file_path):
-            return FileResponse(file_path)
+            resp = FileResponse(file_path)
+            # Efficient caching headers
+            if "/assets/" in file_path or full_path.startswith("assets/"):
+                resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif file_path.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".svg", ".ico", ".woff2")):
+                resp.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+            return resp
+
         index_file = os.path.join(FRONTEND_DIST, "index.html")
         if os.path.isfile(index_file):
-            return FileResponse(index_file)
+            try:
+                with open(index_file, "r", encoding="utf-8") as f:
+                    html_content = f.read()
+
+                # Dynamic SEO Meta & Prerender Injection for Social Sharing and Crawlers
+                path_lower = full_path.lower().strip("/")
+                canonical_url = f"https://{PRIMARY_DOMAIN}/{path_lower}" if path_lower else f"https://{PRIMARY_DOMAIN}/"
+
+                page_title = "Reva Hub – Recover. Trade. Learn. | Lagos Circular Marketplace"
+                page_desc = "Nigeria's premier circular economy marketplace for recovered plastics, fabrics, wood, cardboard and circular craft goods. Trade safely with Paystack escrow."
+                prerender_body = ""
+
+                if path_lower.startswith("marketplace"):
+                    page_title = "Recovered Materials Marketplace | Reva Hub Lagos"
+                    page_desc = "Browse active lots of recovered plastics, fabric offcuts, hardwood lumber, OCC cardboard bales, and upcycled artisan goods across Lagos."
+                    prerender_body = "<div class='seo-prerender' style='display:none;'><h1>Lagos Recovered Materials Marketplace</h1><p>Trade industrial HDPE flakes, PET bottles, fabric scraps, reclaimed hardwood furniture, and cardboard bales with secure escrow.</p></div>"
+                elif path_lower.startswith("learn"):
+                    page_title = "Reva Learn – Circular Skills & DIY Upcycling Tutorials"
+                    page_desc = "Master creative circular crafting with step-by-step video guides: how to knit with recovered yarn, self-watering planters, pallet furniture, and tote bags."
+                    prerender_body = "<div class='seo-prerender' style='display:none;'><h1>Reva Learn: Circular Economy Skills</h1><p>Watch step-by-step masterclasses on knitting recovered textiles, building pallet tables, and crafting circular products.</p></div>"
+                elif path_lower.startswith("premium"):
+                    page_title = "Reva Premium Membership – Priority Deals & Zero Commissions"
+                    page_desc = "Unlock exclusive wholesale recovered lots, priority transport dispatch, zero commission trading, and verified trader badges on Reva Hub."
+
+                html_content = re.sub(r'<title>.*?</title>', f'<title>{page_title}</title>', html_content)
+                html_content = re.sub(r'<meta name="description" content=".*?" />', f'<meta name="description" content="{page_desc}" />', html_content)
+                html_content = re.sub(r'<link rel="canonical" href=".*?" />', f'<link rel="canonical" href="{canonical_url}" />', html_content)
+                html_content = re.sub(r'<meta property="og:title" content=".*?" />', f'<meta property="og:title" content="{page_title}" />', html_content)
+                html_content = re.sub(r'<meta property="og:description" content=".*?" />', f'<meta property="og:description" content="{page_desc}" />', html_content)
+                html_content = re.sub(r'<meta property="og:url" content=".*?" />', f'<meta property="og:url" content="{canonical_url}" />', html_content)
+
+                if prerender_body:
+                    html_content = html_content.replace('<div id="root">', f'<div id="root">{prerender_body}')
+
+                resp = HTMLResponse(content=html_content)
+                resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                return resp
+            except Exception as e:
+                logger.error("Error reading index.html: %s", e)
+                return FileResponse(index_file)
+
         return JSONResponse(status_code=404, content={"detail": "Not found"})
 

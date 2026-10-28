@@ -351,6 +351,7 @@ export default function ListingDetailPage() {
                 src={listing.photos[photoIdx]?.url}
                 alt={`${listing.title} photo ${photoIdx + 1}`}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-7xl opacity-30">
@@ -372,7 +373,7 @@ export default function ListingDetailPage() {
             <div className="flex gap-2 overflow-x-auto">
               {listing.photos.map((p, i) => (
                 <button key={i} onClick={() => setPhotoIdx(i)} className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${i === photoIdx ? 'border-gold-500' : 'border-transparent'}`}>
-                  <img src={p.url} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={p.url} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
                 </button>
               ))}
             </div>
@@ -487,7 +488,7 @@ export default function ListingDetailPage() {
             {related.map((r: Listing) => (
               <Link key={r.id} to={`/listings/${r.slug}`} className="card hover:shadow-md transition-shadow">
                 <div className="aspect-[4/3] bg-cream-100">
-                  {r.photos[0] && <img src={r.photos[0].url} alt={r.title} className="w-full h-full object-cover" />}
+                  {r.photos[0] && <img src={r.photos[0].url} alt={r.title} className="w-full h-full object-cover" loading="lazy" />}
                 </div>
                 <div className="p-3">
                   <p className="text-sm font-medium truncate">{r.title}</p>

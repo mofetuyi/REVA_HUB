@@ -3,18 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Reva Hub – Lagos circular-economy platform for recovered materials. Trade plastics, fabrics, wood, cardboard, and learn upcycling skills." />
+    <title>Reva Hub – Recover. Trade. Learn. | Lagos Circular Marketplace</title>
+    <meta name="description" content="Nigeria's premier circular economy marketplace for recovered plastics, fabrics, wood, cardboard and circular craft goods. Trade safely with Paystack escrow." />
     <meta name="theme-color" content="#C9A227" />
+    <link rel="canonical" href="https://reva-marketplace.com.ng" />
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://reva-marketplace.com.ng/" />
+    <meta property="og:site_name" content="Reva Hub" />
+    <meta property="og:title" content="Reva Hub – Recover. Trade. Learn. | Lagos Circular Marketplace" />
+    <meta property="og:description" content="Buy and sell recovered materials in Lagos with Paystack escrow protection. Master upcycling skills with Reva Learn." />
+    <meta property="og:image" content="https://reva-marketplace.com.ng/logo.jpg" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://reva-marketplace.com.ng/" />
+    <meta name="twitter:title" content="Reva Hub – Recover. Trade. Learn." />
+    <meta name="twitter:description" content="Trade recovered materials in Lagos with escrow protection and learn upcycling skills." />
+    <meta name="twitter:image" content="https://reva-marketplace.com.ng/logo.jpg" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/webp" href="/favicon.webp" />
     <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
     <link rel="apple-touch-icon" href="/logo.jpg" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..700;1,14..32,300..700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet" />
+
     <!-- Google Identity Services for real Google One-Tap & Sign-In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <title>Reva Hub – Recover. Trade. Learn.</title>
+
     <style>
-      /* Pre-loader shown while React bundle executes */
       #app-preloader {
         display: flex;
         flex-direction: column;
@@ -24,6 +45,8 @@
         background-color: #FAF8F5;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         color: #1A1A1A;
+        padding: 20px;
+        text-align: center;
       }
       .preloader-spinner {
         width: 44px;
@@ -37,6 +60,17 @@
       @keyframes spin {
         to { transform: rotate(360deg); }
       }
+      .preloader-status {
+        margin-top: 14px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1A1A1A;
+      }
+      .preloader-subtext {
+        margin-top: 4px;
+        font-size: 12px;
+        color: #766E65;
+      }
     </style>
   </head>
   <body>
@@ -48,10 +82,27 @@
     </noscript>
     <div id="root">
       <div id="app-preloader">
-        <img src="/logo.jpg" alt="Reva Hub" style="width: 72px; height: 72px; border-radius: 50%; object-fit: contain; background: #0F0F0F;" onerror="this.style.display='none'" />
+        <img src="/logo.jpg" alt="Reva Hub" style="width: 76px; height: 76px; border-radius: 50%; object-fit: contain; background: #0F0F0F; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.style.display='none'" />
         <div class="preloader-spinner"></div>
+        <p id="preloader-msg" class="preloader-status">Connecting to Reva Hub...</p>
+        <p id="preloader-sub" class="preloader-subtext">Secured Lagos circular economy marketplace</p>
       </div>
     </div>
+    <script>
+      // Friendly progressive messaging during cold starts / wakeups
+      setTimeout(function() {
+        var msg = document.getElementById('preloader-msg');
+        var sub = document.getElementById('preloader-sub');
+        if (msg) msg.textContent = 'Connecting to secure server...';
+        if (sub) sub.textContent = 'Waking up cloud service (Render) & verifying escrow connection';
+      }, 3500);
+      setTimeout(function() {
+        var msg = document.getElementById('preloader-msg');
+        var sub = document.getElementById('preloader-sub');
+        if (msg) msg.textContent = 'Almost ready...';
+        if (sub) sub.textContent = 'Loading live recovered listings & upcycling tutorials';
+      }, 8500);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
