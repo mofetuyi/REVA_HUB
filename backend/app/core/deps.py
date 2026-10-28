@@ -142,8 +142,8 @@ async def verify_internal_key(
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    x_internal_key: Optional[str] = Header(None, alias="X-Internal-Key"),
     db: AsyncSession = Depends(get_db),
+    x_internal_key: Optional[str] = Header(None, alias="X-Internal-Key"),
 ):
     """Require a valid JWT access token or valid X-Internal-Key for automation."""
     from app.models.user import User  # avoid circular import
@@ -193,13 +193,14 @@ async def get_current_user(
 async def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
+    x_internal_key: Optional[str] = Header(None, alias="X-Internal-Key"),
 ):
     """Return user if authenticated, else None."""
-    if not credentials:
+    if not credentials and not x_internal_key:
         return None
     try:
-        return await get_current_user(credentials, db)
-    except HTTPException:
+        return await get_current_user(credentials=credentials, db=db, x_internal_key=x_internal_key)
+    except Exception:
         return None
 
 
