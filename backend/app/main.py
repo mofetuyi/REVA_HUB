@@ -312,15 +312,17 @@ async def domain_redirect_and_security_middleware(request: Request, call_next):
     host_header = request.headers.get("host", "").lower().split(":")[0]
     raw_path = request.url.path
 
-    # Canonical 301 Redirect: redirect render domain or www to https://reva-marketplace.com.ng
-    # Keep /health, /docs, /openapi.json, internal automation, and X-Internal-Key passing through
-    is_exempt = (
-        raw_path in ["/health", "/docs", "/openapi.json", "/redoc"]
+    # Canonical 301 Redirect: redirect browser page navigations on render domain or www to https://reva-marketplace.com.ng
+    # Keep API endpoints, non-GET requests, assets, uploads, and health/internal checks functioning seamlessly
+    is_api_or_asset = (
+        request.method != "GET"
+        or raw_path.startswith(("/api", "/auth", "/listings", "/offers", "/orders", "/webhooks", "/reviews", "/admin", "/gemini", "/compliance", "/price_refs", "/assets", "/uploads", "/favicon", "/logo"))
+        or raw_path in ["/health", "/docs", "/openapi.json", "/redoc", "/robots.txt", "/sitemap.xml"]
         or raw_path.startswith("/internal")
         or bool(request.headers.get("x-internal-key"))
     )
 
-    if not is_exempt and host_header in ["reva-hub-q6pp.onrender.com", f"www.{PRIMARY_DOMAIN}", "www.revahub.ng"]:
+    if not is_api_or_asset and host_header in ["reva-hub-q6pp.onrender.com", f"www.{PRIMARY_DOMAIN}", "www.revahub.ng"]:
         query_suffix = f"?{request.url.query}" if request.url.query else ""
         canonical_target = f"https://{PRIMARY_DOMAIN}{raw_path}{query_suffix}"
         return RedirectResponse(url=canonical_target, status_code=status.HTTP_301_MOVED_PERMANENTLY)
