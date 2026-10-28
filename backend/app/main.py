@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
     logger.info("=== Reva Hub Platform starting ===")
+    settings.validate_production_settings()
     logger.info("Environment: %s", settings.ENVIRONMENT)
     logger.info("Integration status:")
     logger.info("  Gemini AI:         %s", "✓ CONFIGURED" if settings.gemini_configured else "✗ NOT configured (set GEMINI_API_KEY)")
@@ -50,6 +51,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.onrender\.com)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

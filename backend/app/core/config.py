@@ -14,15 +14,18 @@ class Settings(BaseSettings):
     # ── Application ──────────────────────────────────────────────────────────
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "insecure-change-in-production"
-    ALLOWED_ORIGINS: str = "http://localhost:5173"
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://reva-hub.onrender.com"
     FRONTEND_URL: str = "http://localhost:5173"
 
     # ── Database ──────────────────────────────────────────────────────────────
-    DATABASE_URL: str = "postgresql://neondb_owner:npg_JI4bCNfL3wRs@ep-old-cell-b5o5jg1o-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require"
+    # Never hard-code production credentials. In development, defaults to local SQLite.
+    DATABASE_URL: str = "sqlite+aiosqlite:///./reva.db"
 
     @property
     def async_database_url(self) -> str:
         url = self.DATABASE_URL
+        if url.startswith("sqlite"):
+            return url
         if url.startswith("postgresql://"):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         elif url.startswith("postgres://"):
@@ -109,10 +112,18 @@ class Settings(BaseSettings):
 
     # ── AI Listing Review ─────────────────────────────────────────────────────
     AI_REVIEW_ENABLED: bool = True
-    AI_REVIEW_MODEL: str = "gemini-1.5-flash"
+    AI_REVIEW_MODEL: str = "gemini-1.5-flash-latest"
     AI_REVIEW_TIMEOUT_SECONDS: int = 30
     AI_REVIEW_MAX_TEXT_CHARS: int = 4000
     AI_REVIEW_MIN_SOURCES: int = 3
+
+    def validate_production_settings(self) -> None:
+        """Fail fast if dangerous defaults are present in production."""
+        if self.ENVIRONMENT == "production":
+            if "change-in-production" in self.SECRET_KEY or len(self.SECRET_KEY) < 24:
+                raise ValueError("CRITICAL SECURITY ERROR: Set a strong random SECRET_KEY in production!")
+            if self.DATABASE_URL.startswith("sqlite"):
+                raise ValueError("CRITICAL SECURITY ERROR: DATABASE_URL must point to live PostgreSQL in production!")
 
     # ── Price Reference ───────────────────────────────────────────────────────
     PRICE_REF_REFRESH_INTERVAL_DAYS: int = 7

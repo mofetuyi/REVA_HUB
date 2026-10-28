@@ -106,6 +106,12 @@ async def payment_webhook(
             logger.warning("Cannot transition order %s from %s to funded", order.id, order.status.value)
             return {"status": "ignored"}
 
+        # Verify amount paid matches order value
+        expected_kobo = int(round(float(order.total_amount_ngn) * 100))
+        if amount_kobo < expected_kobo:
+            logger.error("Underpaid order %s: received %s kobo, expected %s kobo", order.id, amount_kobo, expected_kobo)
+            return {"status": "underpaid_rejected"}
+
         # Verify with Paystack directly
         if settings.payment_configured:
             verification = await verify_transaction(reference)

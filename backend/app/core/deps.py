@@ -11,16 +11,120 @@ from app.core.database import get_db
 from app.core.security import decode_token
 from app.core.config import settings
 
+import time
+from typing import Any
+import logging
+
+logger = logging.getLogger(__name__)
+
 bearer_scheme = HTTPBearer(auto_error=False)
 
-_redis_pool: aioredis.Redis | None = None
+class InMemoryCache:
+    """In-memory key-value cache with TTL, fallback for environments without Redis."""
+    def __init__(self):
+        self._data: dict[str, str] = {}
+        self._exp: dict[str, float] = {}
 
+    def _purge(self, key: str):
+        if key in self._exp and time.time() > self._exp[key]:
+            self._data.pop(key, None)
+            self._exp.pop(key, None)
 
-async def get_redis() -> aioredis.Redis:
-    global _redis_pool
-    if _redis_pool is None:
-        _redis_pool = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-    return _redis_pool
+    async def get(self, key: str):
+        self._purge(key)
+        return self._data.get(key)
+
+    async def setex(self, key: str, time_sec: int, value: Any):
+        self._data[key] = str(value)
+        self._exp[key] = time.time() + float(time_sec)
+
+    async def delete(self, key: str):
+        self._data.pop(key, None)
+        self._exp.pop(key, None)
+
+    async def incr(self, key: str) -> int:
+        self._purge(key)
+        curr = int(self._data.get(key, 0)) + 1
+        self._data[key] = str(curr)
+        return curr
+
+    async def expire(self, key: str, time_sec: int):
+        if key in self._data:
+            self._exp[key] = time.time() + float(time_sec)
+
+class ResilientCache:
+    """Wraps Redis with automatic fallback to memory cache if Redis is absent."""
+    def __init__(self):
+        self._redis: aioredis.Redis | None = None
+        self._memory = InMemoryCache()
+        self._redis_attempted = False
+
+    async def _ensure_redis(self):
+        if self._redis_attempted:
+            return self._redis
+        self._redis_attempted = True
+        try:
+            client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True, socket_timeout=1.5)
+            await client.ping()
+            self._redis = client
+            logger.info("Connected to Redis at %s", settings.REDIS_URL)
+        except Exception:
+            logger.warning("Redis not reachable at %s. Using resilient in-memory session cache.", settings.REDIS_URL)
+            self._redis = None
+        return self._redis
+
+    async def get(self, key: str):
+        r = await self._ensure_redis()
+        if r:
+            try:
+                res = await r.get(key)
+                if isinstance(res, bytes):
+                    return res.decode("utf-8")
+                return res
+            except Exception:
+                pass
+        return await self._memory.get(key)
+
+    async def setex(self, key: str, time_sec: int, value: Any):
+        r = await self._ensure_redis()
+        if r:
+            try:
+                return await r.setex(key, time_sec, value)
+            except Exception:
+                pass
+        return await self._memory.setex(key, time_sec, value)
+
+    async def delete(self, key: str):
+        r = await self._ensure_redis()
+        if r:
+            try:
+                return await r.delete(key)
+            except Exception:
+                pass
+        return await self._memory.delete(key)
+
+    async def incr(self, key: str) -> int:
+        r = await self._ensure_redis()
+        if r:
+            try:
+                return await r.incr(key)
+            except Exception:
+                pass
+        return await self._memory.incr(key)
+
+    async def expire(self, key: str, time_sec: int):
+        r = await self._ensure_redis()
+        if r:
+            try:
+                return await r.expire(key, time_sec)
+            except Exception:
+                pass
+        return await self._memory.expire(key, time_sec)
+
+_cache_instance = ResilientCache()
+
+async def get_redis():
+    return _cache_instance
 
 
 async def get_current_user(

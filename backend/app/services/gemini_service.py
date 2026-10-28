@@ -105,8 +105,9 @@ async def chat(user_message: str, db: AsyncSession, conversation_history: list |
         import google.generativeai as genai
 
         genai.configure(api_key=settings.GEMINI_API_KEY)
+        model_name = getattr(settings, "AI_REVIEW_MODEL", "gemini-1.5-flash-latest")
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name=model_name,
             system_instruction=SYSTEM_PROMPT,
         )
 

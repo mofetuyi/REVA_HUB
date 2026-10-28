@@ -10,27 +10,27 @@ import { formatNGN, formatDate } from '../../lib/nigeriaData'
 import type { Order } from '../../types'
 
 function FeeBreakdown({ order }: { order: Order }) {
+  const sellerProceeds = order.seller_proceeds_ngn || (order.total_amount_ngn * 0.94)
+  const commission = order.commission_ngn || (order.total_amount_ngn * 0.06)
+
   return (
-    <div className="bg-cream-50 rounded-xl p-4 text-sm space-y-1">
-      <h3 className="font-semibold text-dark-800 mb-2">Fee Breakdown</h3>
-      <div className="flex justify-between"><span className="text-dark-600">Material cost</span><span>{formatNGN(order.total_amount_ngn)}</span></div>
-      {order.commission_ngn > 0 && (
-        <>
-          <div className="flex justify-between text-dark-500">
-            <span>Marketplace commission ({(order.commission_rate * 100).toFixed(0)}%)</span>
-            <span>−{formatNGN(order.commission_ngn)}</span>
-          </div>
-          <div className="flex justify-between text-dark-500">
-            <span>Processing fee (covered by commission)</span>
-            <span>−{formatNGN(order.processing_fee_ngn)}</span>
-          </div>
-          <div className="border-t border-cream-100 pt-1 mt-1 flex justify-between font-semibold">
-            <span>Seller receives</span>
-            <span>{formatNGN(order.seller_proceeds_ngn)}</span>
-          </div>
-        </>
-      )}
-      <p className="text-xs text-dark-400 mt-2">Processing fees are covered by Reva Hub's commission — not deducted from your payment.</p>
+    <div className="bg-cream-50 rounded-xl p-3.5 text-xs space-y-1.5 border border-cream-200">
+      <h3 className="font-bold text-dark-900 mb-1">Fee & Escrow Breakdown (6% Platform / 94% Payout)</h3>
+      <div className="flex justify-between text-dark-700">
+        <span>Order Material Total</span>
+        <span className="font-medium">{formatNGN(order.total_amount_ngn)}</span>
+      </div>
+      <div className="flex justify-between text-dark-500">
+        <span>Reva Hub Marketplace Commission (6%)</span>
+        <span>−{formatNGN(commission)}</span>
+      </div>
+      <div className="border-t border-cream-200 pt-1 mt-1 flex justify-between font-bold text-dark-900">
+        <span className="text-emerald-700">Paystack Automatic Seller Payout (94%)</span>
+        <span className="text-emerald-700 font-mono">{formatNGN(sellerProceeds)}</span>
+      </div>
+      <p className="text-[10px] text-dark-400 mt-1">
+        Funds are released to the seller via Paystack transfer the moment the buyer clicks "Delivered & Confirmed".
+      </p>
     </div>
   )
 }
@@ -147,8 +147,8 @@ export default function OrdersPage() {
 
   const deliveryMutation = useMutation({
     mutationFn: (orderId: string) => api.post(`/orders/${orderId}/confirm-delivery`, { notes: '' }),
-    onSuccess: () => {
-      toast.success('Delivery confirmed!')
+    onSuccess: (res) => {
+      toast.success(res.data?.message || 'Delivery confirmed! 94% automatically transferred to seller via Paystack.')
       queryClient.invalidateQueries({ queryKey: ['orders'] })
     },
     onError: (err) => toast.error(extractError(err)),
@@ -213,6 +213,28 @@ export default function OrdersPage() {
                 })}
               </div>
 
+              {/* Logistics & Delivery Info */}
+              <div className="bg-cream-50/80 p-3 rounded-xl border border-cream-200 text-xs space-y-1">
+                <span className="font-bold text-dark-800 uppercase tracking-wider text-[10px]">
+                  Fulfillment & Logistics: {order.delivery_method ? order.delivery_method.replace('_', ' ') : 'Self Pickup'}
+                </span>
+                {order.delivery_method === 'reva_logistics' ? (
+                  <p className="text-dark-700">
+                    <strong>Delivery Address:</strong> {order.buyer_delivery_address || 'Lagos, Nigeria'} · <strong>Phone:</strong> {order.buyer_phone || 'On file'}
+                  </p>
+                ) : (
+                  <p className="text-dark-700">
+                    <strong>Pickup Point:</strong> {order.seller_pickup_address || 'Lagos, Nigeria'} · <strong>Seller Contact:</strong> {order.seller_contact_phone || 'Provided for dispatch'}
+                  </p>
+                )}
+                {order.seller_payout_status === 'released' && (
+                  <div className="text-emerald-700 font-semibold pt-1 flex items-center gap-1">
+                    <span>✓ 94% Seller Payout Transferred:</span>
+                    <span className="font-mono">{formatNGN(order.seller_proceeds_ngn || (order.total_amount_ngn * 0.94))}</span>
+                  </div>
+                )}
+              </div>
+
               {/* Actions */}
               <div className="flex flex-wrap gap-2">
                 {tab === 'buying' && order.status === 'payment_pending' && (
@@ -220,14 +242,19 @@ export default function OrdersPage() {
                     Pay Now
                   </Button>
                 )}
-                {tab === 'buying' && (order.status === 'in_transit' || order.status === 'delivered') && (
-                  <Button size="sm" onClick={() => deliveryMutation.mutate(order.id)} loading={deliveryMutation.isPending}>
-                    Confirm Delivery
+                {tab === 'buying' && (order.status === 'funded' || order.status === 'in_transit' || order.status === 'delivered') && (
+                  <Button
+                    size="sm"
+                    onClick={() => deliveryMutation.mutate(order.id)}
+                    loading={deliveryMutation.isPending}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  >
+                    ✓ Delivered & Confirmed (Release 94% Payout)
                   </Button>
                 )}
                 {tab === 'selling' && order.status === 'funded' && (
                   <Button size="sm" variant="secondary" onClick={() => inTransitMutation.mutate(order.id)} loading={inTransitMutation.isPending}>
-                    Mark In Transit
+                    Mark Ready / In Transit
                   </Button>
                 )}
                 {['funded', 'in_transit', 'delivered', 'confirmed'].includes(order.status) && (

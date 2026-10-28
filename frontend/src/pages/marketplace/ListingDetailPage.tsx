@@ -15,6 +15,11 @@ function OfferModal({ listing, onClose }: { listing: Listing; onClose: () => voi
   const [message, setMessage] = React.useState('')
   const queryClient = useQueryClient()
 
+  const { data: aiOffer, isLoading: loadingAi } = useQuery({
+    queryKey: ['suggest-offer', listing.id],
+    queryFn: async () => (await api.get(`/offers/suggest-offer/${listing.id}`)).data,
+  })
+
   const offerMutation = useMutation({
     mutationFn: () => api.post('/offers', {
       listing_id: listing.id,
@@ -32,10 +37,37 @@ function OfferModal({ listing, onClose }: { listing: Listing; onClose: () => voi
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-dark-900/60 animate-fade-in" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 animate-slide-up" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-display font-bold">Make an Offer</h2>
-        <div className="text-sm text-dark-600">
-          Listed price: <strong>{formatNGN(listing.price_ngn)}</strong>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-display font-bold">Make an Offer</h2>
+          <button onClick={onClose} className="text-dark-400 hover:text-dark-700 font-bold">✕</button>
         </div>
+
+        <div className="text-sm text-dark-600">
+          Listed price: <strong>{formatNGN(listing.price_ngn)}</strong> / {listing.unit}
+        </div>
+
+        {/* AI Suggested Offer Badge */}
+        {aiOffer && (
+          <div className="bg-gradient-to-r from-gold-50 to-amber-50 border border-gold-300 rounded-xl p-3 space-y-1.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gold-900 flex items-center gap-1">
+                ⚡ AI Suggested Smart Offer
+              </span>
+              <span className="text-xs font-semibold bg-gold-200 text-gold-900 px-2 py-0.5 rounded-full">
+                {aiOffer.discount_pct}% below asking
+              </span>
+            </div>
+            <p className="text-xs text-dark-700 leading-relaxed">{aiOffer.rationale}</p>
+            <button
+              type="button"
+              onClick={() => setPrice(aiOffer.suggested_price.toString())}
+              className="mt-1 text-xs font-bold text-gold-700 hover:text-gold-900 underline flex items-center gap-1"
+            >
+              <span>Use this AI price: {formatNGN(aiOffer.suggested_price)}</span>
+              <span>→</span>
+            </button>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-dark-800 mb-1">Your offer price (₦) *</label>
@@ -44,25 +76,25 @@ function OfferModal({ listing, onClose }: { listing: Listing; onClose: () => voi
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder={`e.g. ${Math.round(listing.price_ngn * 0.9).toLocaleString()}`}
-            className="w-full px-3 py-2 border border-cream-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400"
+            className="w-full px-3 py-2 border border-cream-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400 font-medium"
             min="1"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-dark-800 mb-1">Message (optional)</label>
+          <label className="block text-sm font-medium text-dark-800 mb-1">Message to seller (optional)</label>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Tell the seller about your needs…"
+            placeholder="e.g. Ready for immediate pickup with my own truck…"
             rows={3}
             className="w-full px-3 py-2 border border-cream-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400 resize-none text-sm"
           />
         </div>
 
-        <p className="text-xs text-dark-500">⏱ Offer expires after 7 days if not responded to.</p>
+        <p className="text-xs text-dark-500">⏱ Offers expire automatically after 7 days if not accepted.</p>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 pt-2">
           <Button variant="secondary" onClick={onClose} className="flex-1">Cancel</Button>
           <Button
             onClick={() => offerMutation.mutate()}
@@ -78,11 +110,194 @@ function OfferModal({ listing, onClose }: { listing: Listing; onClose: () => voi
   )
 }
 
+function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => void }) {
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const [deliveryMethod, setDeliveryMethod] = React.useState<'self_pickup' | 'own_courier' | 'reva_logistics'>('self_pickup')
+  const [buyerPhone, setBuyerPhone] = React.useState(user?.phone || '')
+  const [buyerAddress, setBuyerAddress] = React.useState('')
+  const [notes, setNotes] = React.useState('')
+  const [quantity, setQuantity] = React.useState(listing.quantity || 1)
+  const [paymentConfirmed, setPaymentConfirmed] = React.useState(false)
+
+  const totalAmount = (listing.price_ngn || 0) * (quantity || 1)
+  const paystackUrl = "https://paystack.shop/pay/13c70vrnsm"
+
+  const checkoutMutation = useMutation({
+    mutationFn: () => api.post('/orders/checkout', {
+      listing_id: listing.id,
+      quantity: Number(quantity),
+      delivery_method: deliveryMethod,
+      buyer_phone: buyerPhone || undefined,
+      buyer_delivery_address: buyerAddress || undefined,
+      notes: notes || undefined,
+      payment_reference: paymentConfirmed ? `paystack_direct_${Date.now()}` : undefined,
+    }),
+    onSuccess: (res) => {
+      toast.success('Order placed successfully! Funds secured in Reva Escrow.')
+      onClose()
+      navigate('/orders')
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-dark-900/60 animate-fade-in" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b pb-3 border-cream-200">
+          <div>
+            <h2 className="text-xl font-display font-bold text-dark-900">Instant Checkout & Escrow</h2>
+            <p className="text-xs text-dark-500">Held in licensed escrow until you inspect & confirm delivery</p>
+          </div>
+          <button onClick={onClose} className="text-dark-400 hover:text-dark-700 font-bold text-lg">✕</button>
+        </div>
+
+        {/* Item Summary */}
+        <div className="bg-cream-50 p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <p className="font-bold text-dark-900 text-sm">{listing.title}</p>
+            <p className="text-xs text-dark-500">{formatNGN(listing.price_ngn)} per {listing.unit}</p>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] text-dark-500 uppercase tracking-wider block font-semibold">Total Amount</span>
+            <span className="text-lg font-bold text-gold-600 font-display">{formatNGN(totalAmount)}</span>
+          </div>
+        </div>
+
+        {/* Fulfillment Options */}
+        <div className="space-y-2">
+          <label className="block text-xs font-bold text-dark-800 uppercase tracking-wider">
+            Choose Delivery / Logistics Option *
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setDeliveryMethod('self_pickup')}
+              className={`p-3 rounded-xl border text-left transition-all ${deliveryMethod === 'self_pickup' ? 'border-gold-500 bg-gold-50 ring-1 ring-gold-400 font-semibold' : 'border-cream-200 hover:border-cream-300'}`}
+            >
+              <span className="text-base block mb-1">🏢</span>
+              <strong className="block text-dark-900">Self-Pickup</strong>
+              <p className="text-[11px] text-dark-500 mt-0.5">Pick up directly from seller</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDeliveryMethod('own_courier')}
+              className={`p-3 rounded-xl border text-left transition-all ${deliveryMethod === 'own_courier' ? 'border-gold-500 bg-gold-50 ring-1 ring-gold-400 font-semibold' : 'border-cream-200 hover:border-cream-300'}`}
+            >
+              <span className="text-base block mb-1">🚚</span>
+              <strong className="block text-dark-900">Own Courier</strong>
+              <p className="text-[11px] text-dark-500 mt-0.5">Dispatch your rider to seller</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDeliveryMethod('reva_logistics')}
+              className={`p-3 rounded-xl border text-left transition-all ${deliveryMethod === 'reva_logistics' ? 'border-gold-500 bg-gold-50 ring-1 ring-gold-400 font-semibold' : 'border-cream-200 hover:border-cream-300'}`}
+            >
+              <span className="text-base block mb-1">📦</span>
+              <strong className="block text-dark-900">Reva Logistics</strong>
+              <p className="text-[11px] text-dark-500 mt-0.5">Partner truck delivery to you</p>
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Address & Contact based on user selection */}
+        {deliveryMethod === 'self_pickup' && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1 text-blue-900">
+            <p className="font-bold">📍 Seller Pickup Point & Contact:</p>
+            <p><strong>Pickup Address:</strong> {listing.pickup_address || `${listing.lga}, Lagos, Nigeria`}</p>
+            <p><strong>Seller Contact Phone:</strong> {listing.seller?.phone || 'Shown upon order placement'}</p>
+          </div>
+        )}
+
+        {deliveryMethod === 'own_courier' && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1 text-blue-900">
+            <p className="font-bold">📍 Pickup Location for Your Courier / Dispatch Rider:</p>
+            <p><strong>Address:</strong> {listing.pickup_address || `${listing.lga}, Lagos, Nigeria`}</p>
+            <p><strong>Seller Contact Phone:</strong> {listing.seller?.phone || 'Shown for dispatch coordination'}</p>
+          </div>
+        )}
+
+        {deliveryMethod === 'reva_logistics' && (
+          <div className="space-y-2.5 bg-cream-50 p-3.5 rounded-xl border border-cream-200 text-xs">
+            <p className="font-bold text-dark-900">📦 Delivery Address Details (Reva Hub Logistics Partners):</p>
+            <div>
+              <label className="block text-dark-700 font-medium mb-1">Your Delivery Phone Number *</label>
+              <input
+                type="tel"
+                value={buyerPhone}
+                onChange={(e) => setBuyerPhone(e.target.value)}
+                placeholder="+2348012345678"
+                className="w-full px-3 py-2 bg-white border border-cream-200 rounded-lg text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-dark-700 font-medium mb-1">Delivery Street Address & Landmark in Lagos *</label>
+              <input
+                type="text"
+                value={buyerAddress}
+                onChange={(e) => setBuyerAddress(e.target.value)}
+                placeholder="e.g. 14 Commercial Ave, Sabo Yaba, Lagos"
+                className="w-full px-3 py-2 bg-white border border-cream-200 rounded-lg text-xs"
+                required
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Paystack Payment Section with autofilled amount & payment link */}
+        <div className="border border-gold-300 bg-gold-50/60 p-4 rounded-xl space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-dark-900">Paystack Escrow Protection</span>
+            <span className="text-xs font-mono font-bold text-gold-700">Autofill: {formatNGN(totalAmount)}</span>
+          </div>
+          <p className="text-[11px] text-dark-600 leading-snug">
+            Pay safely via Paystack. Funds remain safely in escrow. Once you confirm delivery, Paystack automatically transfers <strong>94%</strong> directly to the seller.
+          </p>
+          <a
+            href={paystackUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setPaymentConfirmed(true)}
+            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
+          >
+            <span>Pay {formatNGN(totalAmount)} on Paystack</span>
+            <span>↗</span>
+          </a>
+          <label className="flex items-center gap-2 text-xs text-dark-700 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={paymentConfirmed}
+              onChange={(e) => setPaymentConfirmed(e.target.checked)}
+              className="rounded text-gold-500 focus:ring-gold-400"
+            />
+            <span>I have paid on Paystack</span>
+          </label>
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" onClick={onClose} className="flex-1">Cancel</Button>
+          <Button
+            onClick={() => checkoutMutation.mutate()}
+            loading={checkoutMutation.isPending}
+            className="flex-1 bg-gold-500 hover:bg-gold-600 text-dark-900 font-bold"
+          >
+            Confirm & Place Order
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user, isAuthenticated } = useAuthStore()
   const [photoIdx, setPhotoIdx] = React.useState(0)
   const [offerModalOpen, setOfferModalOpen] = React.useState(false)
+  const [checkoutModalOpen, setCheckoutModalOpen] = React.useState(false)
   const [flagOpen, setFlagOpen] = React.useState(false)
 
   const { data: listing, isLoading, error } = useQuery<Listing>({
@@ -205,9 +420,14 @@ export default function ListingDetailPage() {
           {/* CTA */}
           <div className="space-y-2">
             {isBuyer && (
-              <Button fullWidth size="lg" onClick={() => setOfferModalOpen(true)}>
-                Make an Offer
-              </Button>
+              <div className="space-y-2">
+                <Button fullWidth size="lg" onClick={() => setCheckoutModalOpen(true)} className="bg-gold-500 hover:bg-gold-600 text-dark-900 font-bold shadow-md">
+                  Buy Now · Paystack Escrow
+                </Button>
+                <Button variant="secondary" fullWidth size="lg" onClick={() => setOfferModalOpen(true)}>
+                  ⚡ Make an Offer (AI Suggested)
+                </Button>
+              </div>
             )}
             {isOwn && (
               <Link to={`/listings/${listing.id}/edit`}>
@@ -215,9 +435,11 @@ export default function ListingDetailPage() {
               </Link>
             )}
             {!isAuthenticated && (
-              <Link to="/login">
-                <Button fullWidth size="lg">Log in to Make an Offer</Button>
-              </Link>
+              <div className="space-y-2">
+                <Link to="/login">
+                  <Button fullWidth size="lg">Log in to Buy or Make Offer</Button>
+                </Link>
+              </div>
             )}
             {isAuthenticated && !isOwn && (
               <button
@@ -280,6 +502,11 @@ export default function ListingDetailPage() {
       {/* Offer modal */}
       {offerModalOpen && listing && (
         <OfferModal listing={listing} onClose={() => setOfferModalOpen(false)} />
+      )}
+
+      {/* Checkout modal */}
+      {checkoutModalOpen && listing && (
+        <CheckoutModal listing={listing} onClose={() => setCheckoutModalOpen(false)} />
       )}
 
       {/* Flag modal */}

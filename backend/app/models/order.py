@@ -35,14 +35,14 @@ class CollectionArranger(str, PyEnum):
 
 # Valid state transitions – enforced in service layer
 VALID_ORDER_TRANSITIONS = {
-    OrderStatus.created: {OrderStatus.payment_pending, OrderStatus.cancelled},
+    OrderStatus.created: {OrderStatus.payment_pending, OrderStatus.funded, OrderStatus.cancelled},
     OrderStatus.payment_pending: {OrderStatus.funded, OrderStatus.cancelled},
-    OrderStatus.funded: {OrderStatus.in_transit, OrderStatus.disputed, OrderStatus.cancelled},
-    OrderStatus.in_transit: {OrderStatus.delivered, OrderStatus.disputed},
-    OrderStatus.delivered: {OrderStatus.confirmed, OrderStatus.disputed},
-    OrderStatus.confirmed: {OrderStatus.released},
+    OrderStatus.funded: {OrderStatus.in_transit, OrderStatus.delivered, OrderStatus.confirmed, OrderStatus.completed, OrderStatus.disputed, OrderStatus.cancelled},
+    OrderStatus.in_transit: {OrderStatus.delivered, OrderStatus.confirmed, OrderStatus.completed, OrderStatus.disputed},
+    OrderStatus.delivered: {OrderStatus.confirmed, OrderStatus.completed, OrderStatus.disputed},
+    OrderStatus.confirmed: {OrderStatus.released, OrderStatus.completed},
     OrderStatus.released: {OrderStatus.completed},
-    OrderStatus.disputed: {OrderStatus.refunded, OrderStatus.released},
+    OrderStatus.disputed: {OrderStatus.refunded, OrderStatus.released, OrderStatus.completed},
     OrderStatus.refunded: set(),
     OrderStatus.completed: set(),
     OrderStatus.cancelled: set(),
@@ -83,6 +83,15 @@ class Order(Base):
     )
 
     # Collection/delivery
+    delivery_method = Column(String(50), nullable=True, default="self_pickup")
+    buyer_phone = Column(String(50), nullable=True)
+    buyer_delivery_address = Column(String(500), nullable=True)
+    seller_contact_phone = Column(String(50), nullable=True)
+    seller_pickup_address = Column(String(500), nullable=True)
+    paystack_payment_url = Column(String(500), nullable=True)
+    seller_payout_reference = Column(String(255), nullable=True)
+    seller_payout_status = Column(String(50), nullable=True, default="pending")
+
     collection_arranged_by = Column(
         Enum(CollectionArranger, name="collection_arranger_enum"),
         nullable=True,

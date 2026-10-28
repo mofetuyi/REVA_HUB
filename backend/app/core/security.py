@@ -53,32 +53,52 @@ def _hash_otp(otp: str, phone: str) -> str:
     return hashlib.sha256(f"{phone}:{otp}".encode()).hexdigest()
 
 
-async def generate_and_store_otp(phone: str, redis_client: aioredis.Redis) -> str:
-    """Generate a 6-digit OTP, store hashed in Redis, return plaintext."""
+MAX_OTP_ATTEMPTS = 5
+
+async def generate_and_store_otp(phone: str, redis_client) -> str:
+    """Generate a 6-digit OTP, store hashed in Redis/Cache, return plaintext."""
     otp = f"{secrets.randbelow(1_000_000):06d}"
     key = f"{OTP_PREFIX}{phone}"
     hashed = _hash_otp(otp, phone)
     await redis_client.setex(key, OTP_TTL_SECONDS, hashed)
+    # Reset attempt counter on new OTP generation
+    await redis_client.delete(f"otp_attempts:{phone}")
     return otp
 
 
-async def verify_otp(phone: str, otp: str, redis_client: aioredis.Redis) -> bool:
-    """Verify OTP; returns True and deletes the key on success."""
+async def verify_otp(phone: str, otp: str, redis_client) -> tuple[bool, str | None]:
+    """Verify OTP with max 5 attempts limit against brute force.
+    Returns (success, error_message).
+    """
+    attempt_key = f"otp_attempts:{phone}"
+    attempts = await redis_client.incr(attempt_key)
+    await redis_client.expire(attempt_key, OTP_TTL_SECONDS)
+
+    if int(attempts) > MAX_OTP_ATTEMPTS:
+        # Brute force prevention: invalidate the OTP entirely
+        await redis_client.delete(f"{OTP_PREFIX}{phone}")
+        return False, "Maximum verification attempts exceeded. Please request a new OTP code."
+
     key = f"{OTP_PREFIX}{phone}"
     stored = await redis_client.get(key)
     if not stored:
-        return False
+        return False, "OTP has expired or was not requested. Please request a new code."
+
+    stored_str = stored if isinstance(stored, str) else stored.decode("utf-8")
     expected = _hash_otp(otp, phone)
-    if secrets.compare_digest(stored.decode(), expected):
+    if secrets.compare_digest(stored_str, expected):
         await redis_client.delete(key)
-        return True
-    return False
+        await redis_client.delete(attempt_key)
+        return True, None
+
+    remaining = MAX_OTP_ATTEMPTS - int(attempts)
+    return False, f"Incorrect OTP code. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
 
 
-async def store_refresh_token(user_id: str, token: str, redis_client: aioredis.Redis) -> None:
+async def store_refresh_token(user_id: str, token: str, redis_client) -> None:
     ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
     await redis_client.setex(f"{REFRESH_TOKEN_PREFIX}{user_id}", ttl, token)
 
 
-async def invalidate_refresh_token(user_id: str, redis_client: aioredis.Redis) -> None:
+async def invalidate_refresh_token(user_id: str, redis_client) -> None:
     await redis_client.delete(f"{REFRESH_TOKEN_PREFIX}{user_id}")

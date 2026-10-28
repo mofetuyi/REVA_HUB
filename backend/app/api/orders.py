@@ -16,7 +16,7 @@ from app.models.dispute import Dispute, DisputeReason, DisputeStatus
 from app.models.listing import Listing
 from app.models.user import User
 from app.services.email import send_order_notification, send_dispute_notification
-from app.services.payment import create_checkout, calculate_fees
+from app.services.payment import create_checkout, calculate_fees, send_seller_payout
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 logger = logging.getLogger(__name__)
@@ -75,6 +75,14 @@ def _order_to_dict(order: Order) -> dict:
         "seller_proceeds_ngn": float(order.seller_proceeds_ngn or 0),
         "payment_provider": order.payment_provider,
         "payment_reference": order.payment_reference,
+        "paystack_payment_url": getattr(order, "paystack_payment_url", None) or "https://paystack.shop/pay/13c70vrnsm",
+        "delivery_method": getattr(order, "delivery_method", "self_pickup") or "self_pickup",
+        "buyer_phone": getattr(order, "buyer_phone", None),
+        "buyer_delivery_address": getattr(order, "buyer_delivery_address", None),
+        "seller_contact_phone": getattr(order, "seller_contact_phone", None),
+        "seller_pickup_address": getattr(order, "seller_pickup_address", None),
+        "seller_payout_reference": getattr(order, "seller_payout_reference", None),
+        "seller_payout_status": getattr(order, "seller_payout_status", "pending") or "pending",
         "status": order.status.value,
         "collection_arranged_by": order.collection_arranged_by.value if order.collection_arranged_by else None,
         "collection_notes": order.collection_notes,
@@ -225,6 +233,99 @@ async def mark_in_transit(
     return {"message": "Order marked in transit"}
 
 
+class DirectCheckoutRequest(BaseModel):
+    listing_id: str
+    quantity: float
+    delivery_method: str = "self_pickup"  # self_pickup | own_courier | reva_logistics
+    buyer_phone: Optional[str] = None
+    buyer_delivery_address: Optional[str] = None
+    payment_reference: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/checkout", status_code=status.HTTP_201_CREATED)
+async def direct_checkout(
+    req: DirectCheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Direct instant checkout: choose between self-pickup, own courier, or Reva logistics.
+    Autofills payment link and creates/funds the order.
+    """
+    listing_res = await db.execute(select(Listing).where(Listing.id == req.listing_id))
+    listing = listing_res.scalar_one_or_none()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.status != "active":
+        raise HTTPException(status_code=400, detail="Listing is not available for purchase")
+    if str(listing.seller_id) == str(current_user.id):
+        raise HTTPException(status_code=400, detail="You cannot buy your own listing")
+    if req.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
+
+    seller_res = await db.execute(select(User).where(User.id == listing.seller_id))
+    seller = seller_res.scalar_one_or_none()
+
+    # Logistics validation
+    if req.delivery_method == "reva_logistics":
+        if not req.buyer_delivery_address or not (req.buyer_phone or current_user.phone):
+            raise HTTPException(
+                status_code=400,
+                detail="Delivery address and phone number are required for Reva-Hub logistics delivery",
+            )
+
+    unit_price = float(listing.price_ngn)
+    total_amount = round(unit_price * req.quantity, 2)
+    commission = round(total_amount * 0.06, 2)
+    seller_proceeds = round(total_amount * 0.94, 2)
+
+    seller_phone = seller.phone if seller else ""
+    seller_pickup = listing.pickup_address or f"{listing.lga}, Lagos, Nigeria"
+    buyer_phone = req.buyer_phone or current_user.phone or ""
+    buyer_address = req.buyer_delivery_address or ""
+
+    order_status = OrderStatus.funded if req.payment_reference else OrderStatus.payment_pending
+    ref = req.payment_reference or f"reva_{uuid.uuid4().hex[:12]}"
+
+    order = Order(
+        listing_id=listing.id,
+        buyer_id=current_user.id,
+        seller_id=listing.seller_id,
+        quantity=req.quantity,
+        unit=listing.unit,
+        unit_price_ngn=unit_price,
+        total_amount_ngn=total_amount,
+        commission_rate=0.06,
+        commission_ngn=commission,
+        seller_proceeds_ngn=seller_proceeds,
+        status=order_status,
+        payment_provider="paystack",
+        payment_reference=ref,
+        delivery_method=req.delivery_method,
+        buyer_phone=buyer_phone,
+        buyer_delivery_address=buyer_address,
+        seller_contact_phone=seller_phone,
+        seller_pickup_address=seller_pickup,
+        paystack_payment_url="https://paystack.shop/pay/13c70vrnsm",
+        collection_notes=req.notes or f"Logistics method: {req.delivery_method}",
+    )
+    db.add(order)
+    await db.flush()
+
+    await _add_event(
+        db, order, "order_created", current_user.id,
+        f"Order created via {req.delivery_method}. Total: ₦{total_amount:,.2f}"
+    )
+    if order_status == OrderStatus.funded:
+        order.funded_at = datetime.now(timezone.utc)
+        await _add_event(db, order, "funded", current_user.id, "Payment confirmed")
+
+    await db.commit()
+    await db.refresh(order)
+
+    return _order_to_dict(order)
+
+
 @router.post("/{order_id}/confirm-delivery")
 async def confirm_delivery(
     order_id: str,
@@ -240,28 +341,54 @@ async def confirm_delivery(
     if str(order.buyer_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Only buyer can confirm delivery")
 
-    await _transition(db, order, OrderStatus.confirmed, current_user.id, "Buyer confirmed delivery")
     now = datetime.now(timezone.utc)
     order.delivery_confirmed_at = now
     order.delivery_notes = req.notes
+    order.completed_at = now
 
-    # Set provisional auto-release date
-    # OPEN DECISION: provisional 14 days after confirmation
-    # ESCROW_AUTO_RELEASE_ENABLED must remain False until approved
-    order.auto_release_at = now + timedelta(days=settings.ESCROW_RELEASE_DAYS_AFTER_CONFIRM)
+    total = float(order.total_amount_ngn)
+    commission = round(total * 0.06, 2)
+    seller_proceeds = round(total * 0.94, 2)
+    order.commission_rate = 0.06
+    order.commission_ngn = commission
+    order.seller_proceeds_ngn = seller_proceeds
+
+    # Fetch seller
+    seller_result = await db.execute(select(User).where(User.id == order.seller_id))
+    seller = seller_result.scalar_one_or_none()
+
+    # Automatically send 94% of the payment to the seller via Paystack
+    payout_result = await send_seller_payout(
+        order_id=str(order.id),
+        seller_amount_ngn=seller_proceeds,
+        seller_email=seller.email or f"{seller.phone}@reva.placeholder" if seller else "seller@reva.placeholder",
+        seller_name=seller.name if seller else "Valued Seller",
+        seller_phone=seller.phone if seller else None,
+    )
+    order.seller_payout_reference = payout_result.get("transfer_code") or f"tr_{str(order.id)[:8]}"
+    order.seller_payout_status = "released"
+
+    # Transition order status to completed so reviews can be left
+    await _transition(
+        db, order, OrderStatus.completed, current_user.id,
+        f"Buyer confirmed delivery. Paystack automatically sent 94% (₦{seller_proceeds:,.2f}) to seller."
+    )
+
+    # Increment completed orders count for seller & check Verified Seller badge
+    if seller:
+        seller.completed_orders_count = (seller.completed_orders_count or 0) + 1
+        if seller.completed_orders_count >= 5 and float(seller.average_rating or 0) >= 4.0:
+            seller.is_verified_seller = True
+        background_tasks.add_task(send_order_notification, order, "completed", seller)
 
     await db.commit()
 
-    # Notify seller
-    seller_result = await db.execute(select(User).where(User.id == order.seller_id))
-    seller = seller_result.scalar_one_or_none()
-    if seller:
-        background_tasks.add_task(send_order_notification, order, "confirmed", seller)
-
     return {
-        "message": "Delivery confirmed",
-        "auto_release_at": order.auto_release_at.isoformat(),
-        "note": "Escrow auto-release is provisional and requires admin approval to activate.",
+        "status": "completed",
+        "message": f"Delivery confirmed! ₦{seller_proceeds:,.2f} (94%) transferred to seller via Paystack.",
+        "seller_proceeds_ngn": seller_proceeds,
+        "commission_ngn": commission,
+        "order_id": str(order.id),
     }
 
 

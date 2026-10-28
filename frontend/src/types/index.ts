@@ -116,6 +116,7 @@ export interface ListingPhoto {
 export interface Seller {
   id: string;
   name: string;
+  phone?: string;
   lga: string;
   average_rating: number;
   review_count: number;
@@ -199,6 +200,14 @@ export interface Order {
   seller_proceeds_ngn: number;
   payment_provider?: string;
   payment_reference?: string;
+  paystack_payment_url?: string;
+  delivery_method?: string;
+  buyer_phone?: string;
+  buyer_delivery_address?: string;
+  seller_contact_phone?: string;
+  seller_pickup_address?: string;
+  seller_payout_reference?: string;
+  seller_payout_status?: string;
   status: OrderStatus;
   collection_arranged_by?: 'buyer' | 'seller' | 'tbd';
   collection_notes?: string;

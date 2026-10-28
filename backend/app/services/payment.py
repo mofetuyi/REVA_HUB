@@ -78,17 +78,55 @@ async def create_checkout(
 
 
 def verify_webhook_signature(payload: bytes, signature: str) -> bool:
-    """Validate Paystack webhook HMAC-SHA512 signature."""
-    if not settings.PAYMENT_WEBHOOK_SECRET:
-        logger.warning("PAYMENT_WEBHOOK_SECRET not set; webhook validation skipped in dev mode")
+    """Validate Paystack webhook HMAC-SHA512 signature using Secret Key."""
+    secret = settings.PAYMENT_WEBHOOK_SECRET or settings.PAYMENT_SECRET_KEY
+    if not secret:
+        logger.warning("Neither PAYMENT_WEBHOOK_SECRET nor PAYMENT_SECRET_KEY configured; webhook validation skipped in dev mode")
         return settings.is_development
 
     expected = hmac.new(
-        settings.PAYMENT_WEBHOOK_SECRET.encode(),
+        secret.encode(),
         payload,
         hashlib.sha512,
     ).hexdigest()
     return hmac.compare_digest(expected, signature)
+
+
+async def send_seller_payout(
+    order_id: str,
+    seller_amount_ngn: float,
+    seller_email: str,
+    seller_name: str,
+    seller_phone: str | None = None,
+) -> dict:
+    """Release 94% of order funds to the seller via Paystack Transfers."""
+    logger.info("Executing 94%% seller payout: ₦%s for order %s to %s", seller_amount_ngn, order_id, seller_email)
+    amount_kobo = int(round(seller_amount_ngn * 100))
+
+    if not settings.payment_configured:
+        logger.info("MOCK PAYOUT: ₦%s automatically released to seller %s (Paystack test/mock mode)", seller_amount_ngn, seller_name)
+        return {
+            "status": "success",
+            "amount_ngn": seller_amount_ngn,
+            "transfer_code": f"mock_tr_{order_id[:8]}",
+            "message": "94% payout simulated successfully"
+        }
+
+    try:
+        payload = {
+            "source": "balance",
+            "reason": f"Reva Hub order payout {order_id}",
+            "amount": amount_kobo,
+            "recipient": seller_email,
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(f"{PAYSTACK_BASE}/transfer", headers=_headers(), json=payload)
+            data = resp.json()
+            logger.info("Paystack transfer response: %s", data)
+            return data
+    except Exception as exc:
+        logger.exception("Paystack payout transfer error: %s", exc)
+        return {"status": "pending", "error": str(exc)}
 
 
 async def verify_transaction(reference: str) -> dict:

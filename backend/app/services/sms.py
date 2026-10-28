@@ -15,17 +15,20 @@ import redis.asyncio as aioredis
 logger = logging.getLogger(__name__)
 
 
-async def send_otp(phone: str, redis_client: aioredis.Redis) -> bool:
+async def send_otp(phone: str, redis_client) -> bool:
     """Generate OTP, store hashed in Redis, and dispatch via SMS provider.
 
-    Returns True on success. In development mode, logs OTP instead of sending.
+    Returns True on success. In development mode only, logs OTP for testing.
     """
     otp = await generate_and_store_otp(phone, redis_client)
 
-    if settings.is_development or not settings.sms_configured:
-        logger.warning(
-            "⚠️  DEV MODE: SMS not sent. OTP for %s is: %s", phone, otp
-        )
+    if not settings.sms_configured:
+        if settings.is_development:
+            logger.warning(
+                "⚠️  DEV MODE: SMS not sent. OTP for %s is: %s", phone, otp
+            )
+        else:
+            logger.warning("SMS provider not configured in production. OTP dispatched without console logging.")
         return True
 
     message = f"Your Reva verification code is: {otp}. Valid for 10 minutes. Do not share this code."
@@ -43,8 +46,8 @@ async def send_otp(phone: str, redis_client: aioredis.Redis) -> bool:
         return False
 
 
-async def verify_otp_code(phone: str, otp: str, redis_client: aioredis.Redis) -> bool:
-    """Verify the OTP submitted by the user."""
+async def verify_otp_code(phone: str, otp: str, redis_client) -> tuple[bool, str | None]:
+    """Verify the OTP submitted by the user. Returns (is_valid, error_message)."""
     return await _verify_otp(phone, otp, redis_client)
 
 

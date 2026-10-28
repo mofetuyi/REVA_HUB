@@ -90,6 +90,10 @@ class VerifyOTPRequest(BaseModel):
     otp: str
 
 
+class ResendOTPRequest(BaseModel):
+    phone: str
+
+
 class LoginRequest(BaseModel):
     phone: str
     password: str
@@ -304,10 +308,10 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis),
 ):
-    """Verify phone OTP and return JWT tokens."""
-    valid = await verify_otp_code(req.phone, req.otp, redis)
+    """Verify phone OTP with brute-force attempt limits and return JWT tokens."""
+    valid, err_msg = await verify_otp_code(req.phone, req.otp, redis)
     if not valid:
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        raise HTTPException(status_code=400, detail=err_msg or "Invalid or expired OTP")
 
     result = await db.execute(select(User).where(User.phone == req.phone))
     user = result.scalar_one_or_none()
@@ -559,12 +563,21 @@ async def kyc_callback(
 
 @router.post("/resend-otp")
 async def resend_otp(
-    req: VerifyOTPRequest,
+    req: ResendOTPRequest,
     redis = Depends(get_redis),
 ):
-    """Resend OTP to the given phone number."""
+    """Resend OTP to the given phone number with 60-second rate-limiting throttle."""
+    throttle_key = f"resend_otp_throttle:{req.phone}"
+    cooldown = await redis.get(throttle_key)
+    if cooldown:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait 60 seconds before requesting another verification code."
+        )
+
+    await redis.setex(throttle_key, 60, "1")
     await send_otp(req.phone, redis)
-    return {"message": "OTP resent"}
+    return {"message": "Verification code resent"}
 
 
 @router.post("/premium/activate-month")
