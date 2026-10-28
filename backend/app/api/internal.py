@@ -74,6 +74,173 @@ async def db_test():
         }
 
 
+@router.get("/seed-run")
+async def seed_run():
+    """Manually trigger marketplace listing and tutorial seeding with full exception reporting."""
+    import traceback
+    from datetime import datetime, timezone, timedelta
+    from app.core.database import AsyncSessionLocal
+    from app.models.listing import Listing, ListingPhoto, ListingCategory, ListingUnit, ListingCondition, ListingStatus, ModerationStatus, CollectionMethod
+    from app.models.user import User
+    from app.models.tutorial import Tutorial, TutorialSection, MaterialType, Difficulty, TutorialStatus, AuthorType
+    from sqlalchemy import select
+
+    results = {"seeded": [], "errors": []}
+    try:
+        async with AsyncSessionLocal() as db:
+            admin_q = await db.execute(select(User).where(User.phone == "+2347076630396"))
+            admin_user = admin_q.scalar_one_or_none()
+            if not admin_user:
+                admin_q2 = await db.execute(select(User).limit(1))
+                admin_user = admin_q2.scalar_one_or_none()
+
+            if not admin_user:
+                return {"status": "error", "error": "No user found to assign as seller"}
+
+            now = datetime.now(timezone.utc)
+            sample_listings = [
+                {
+                    "title": "Refurbished Solid Hardwood Furniture & Office Desks Lot",
+                    "slug": "refurbished-solid-hardwood-furniture-ikeja",
+                    "category": ListingCategory.wood,
+                    "description": "Restored and refinished solid wood office desks, dining tables, bookshelves, and conference chairs. High-durability hardwood recovered and upcycled by local carpenters in Ikeja.",
+                    "quantity": 12,
+                    "unit": ListingUnit.pieces,
+                    "condition": ListingCondition.like_new,
+                    "price_ngn": 185000.0,
+                    "state": "Lagos",
+                    "lga": "Ikeja",
+                    "pickup_address": "Plot 14 Industrial Avenue, Ikeja Industrial Estate, Lagos",
+                    "photo": "/uploads/furniture_wood_showroom.jpg",
+                },
+                {
+                    "title": "Premium Tan Vegetable-Tanned Leather Hide & Upholstery Offcuts",
+                    "slug": "premium-tan-vegetable-tanned-leather-mushin",
+                    "category": ListingCategory.leather,
+                    "description": "Full grain vegetable-tanned leather hide rolls and offcut bundles from Lagos leather manufacturing workshops. Supple, clean finish ideal for footwear, bags, and luxury crafts.",
+                    "quantity": 25,
+                    "unit": ListingUnit.pieces,
+                    "condition": ListingCondition.like_new,
+                    "price_ngn": 35000.0,
+                    "state": "Lagos",
+                    "lga": "Mushin",
+                    "pickup_address": "Ladipo Leather Market, Mushin, Lagos",
+                    "photo": "/uploads/leather_tan_roll.jpg",
+                },
+                {
+                    "title": "Handmade Upcycled Rustic Leather Journal & Bound Notebooks",
+                    "slug": "handmade-upcycled-rustic-leather-journal-surulere",
+                    "category": ListingCategory.circular_products,
+                    "description": "Handcrafted artisan journal created from 100% recovered leather offcuts and unbleached recycled cotton paper with vintage wraparound leather tie cord.",
+                    "quantity": 50,
+                    "unit": ListingUnit.pieces,
+                    "condition": ListingCondition.new,
+                    "price_ngn": 8500.0,
+                    "state": "Lagos",
+                    "lga": "Surulere",
+                    "pickup_address": "18 Adeniran Ogunsanya St, Surulere, Lagos",
+                    "photo": "/uploads/leather_journal_notebook.jpg",
+                },
+                {
+                    "title": "Compacted Corrugated Cardboard Bales (Mill Grade OCC)",
+                    "slug": "compacted-corrugated-cardboard-bales-apapa",
+                    "category": ListingCategory.cardboard,
+                    "description": "Dense mill-ready compacted corrugated cardboard boxes and paper packaging bales. Strapped with high-tensile bands, ready for pulping or packaging conversion.",
+                    "quantity": 10,
+                    "unit": ListingUnit.tonnes,
+                    "condition": ListingCondition.mixed,
+                    "price_ngn": 120000.0,
+                    "state": "Lagos",
+                    "lga": "Apapa",
+                    "pickup_address": "Wharf Road Terminal, Apapa Port Area, Lagos",
+                    "photo": "/uploads/cardboard_bales_occ.jpg",
+                },
+                {
+                    "title": "Sorted Clean Cotton & Ankara Textile Scrap Bundles",
+                    "slug": "sorted-clean-cotton-ankara-textile-scraps-yaba",
+                    "category": ListingCategory.fabric,
+                    "description": "Clean garment factory and tailor offcuts sorted by color. Excellent for yarn recycling, knitting, patchwork quilting, and rag rug crafting in Yaba.",
+                    "quantity": 250,
+                    "unit": ListingUnit.kg,
+                    "condition": ListingCondition.new,
+                    "price_ngn": 28000.0,
+                    "state": "Lagos",
+                    "lga": "Lagos Mainland",
+                    "pickup_address": "Commercial Avenue, Sabo Yaba, Lagos",
+                    "photo": "/uploads/textile_fabric_scraps.jpg",
+                },
+            ]
+
+            for item in sample_listings:
+                try:
+                    existing = (await db.execute(select(Listing).where(Listing.slug == item["slug"]))).scalar_one_or_none()
+                    if not existing:
+                        lst = Listing(
+                            seller_id=admin_user.id,
+                            slug=item["slug"],
+                            category=item["category"],
+                            title=item["title"],
+                            description=item["description"],
+                            quantity=item["quantity"],
+                            unit=item["unit"],
+                            condition=item["condition"],
+                            price_ngn=item["price_ngn"],
+                            state=item["state"],
+                            lga=item["lga"],
+                            pickup_address=item["pickup_address"],
+                            status=ListingStatus.active,
+                            moderation_status=ModerationStatus.approved,
+                            collection_method=CollectionMethod.buyer_arranges,
+                            listed_at=now,
+                            expires_at=now + timedelta(days=90),
+                        )
+                        db.add(lst)
+                        await db.flush()
+                        photo = ListingPhoto(listing_id=lst.id, url=item["photo"], order_index=0)
+                        db.add(photo)
+                        results["seeded"].append(item["title"])
+                except Exception as sub_e:
+                    results["errors"].append({"title": item["title"], "error": str(sub_e), "trace": traceback.format_exc()})
+
+            # Check and seed knitting tutorial
+            knit_slug = "how-to-knit-beginner-guide-yarn"
+            existing_knit = (await db.execute(select(Tutorial).where(Tutorial.slug == knit_slug))).scalar_one_or_none()
+            if not existing_knit:
+                knit_tut = Tutorial(
+                    slug=knit_slug,
+                    title="How to Knit: Complete Beginner Guide with Recovered Yarn",
+                    description="Step-by-step beginner guide to knitting with recovered yarn, wool, and textile strips. Master casting on, the knit stitch, and casting off.",
+                    material_type=MaterialType.fabric,
+                    difficulty=Difficulty.beginner,
+                    estimated_duration_minutes=25,
+                    video_url="https://www.youtube.com/watch?v=p_R1UDsNOMk",
+                    materials_needed=["Reclaimed Wool / Textile Yarn", "Pair of Knitting Needles (5mm - 8mm)", "Scissors", "Tapestry Needle"],
+                    tags=["knitting", "fabric", "yarn", "diy", "craft", "upcycling"],
+                    author_id=admin_user.id,
+                    author_type=AuthorType.staff,
+                    status=TutorialStatus.published,
+                    view_count=650,
+                    published_at=now,
+                )
+                db.add(knit_tut)
+                await db.flush()
+                sec = TutorialSection(
+                    tutorial_id=knit_tut.id,
+                    section_id="intro",
+                    heading="Introduction to Knitting & Casting On",
+                    body_markdown="Knitting is one of the most rewarding upcycling skills. In this video, you will learn how to turn recovered wool skeins and fabric strips into warm winter beanies, scarves, and coasters.",
+                    order_index=1,
+                    video_id="https://www.youtube.com/watch?v=p_R1UDsNOMk",
+                )
+                db.add(sec)
+                results["seeded_tutorial"] = knit_tut.title
+
+            await db.commit()
+            return {"status": "ok", "results": results}
+    except Exception as ge:
+        return {"status": "error", "error": str(ge), "trace": traceback.format_exc()}
+
+
 @router.get("/stats/summary")
 async def get_automation_summary(db: AsyncSession = Depends(get_db)):
     """Summary metrics for n8n digests and alerting."""
