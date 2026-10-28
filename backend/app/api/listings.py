@@ -276,55 +276,60 @@ async def browse_listings(
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     """Browse active, moderated listings with filters."""
-    filters = [
-        Listing.status == ListingStatus.active,
-        Listing.moderation_status == ModerationStatus.approved,
-        Listing.expires_at > datetime.now(timezone.utc),
-    ]
+    try:
+        filters = [
+            Listing.status == ListingStatus.active,
+            Listing.moderation_status == ModerationStatus.approved,
+            Listing.expires_at > datetime.now(timezone.utc),
+        ]
 
-    if category:
-        filters.append(Listing.category == category)
-    if lga:
-        filters.append(Listing.lga == lga)
-    if price_min is not None:
-        filters.append(Listing.price_ngn >= price_min)
-    if price_max is not None:
-        filters.append(Listing.price_ngn <= price_max)
-    if condition:
-        filters.append(Listing.condition == condition)
-    if collection_method:
-        filters.append(Listing.collection_method == collection_method)
-    if search:
-        term = f"%{search}%"
-        filters.append(or_(Listing.title.ilike(term), Listing.description.ilike(term)))
+        if category:
+            filters.append(Listing.category == category)
+        if lga:
+            filters.append(Listing.lga == lga)
+        if price_min is not None:
+            filters.append(Listing.price_ngn >= price_min)
+        if price_max is not None:
+            filters.append(Listing.price_ngn <= price_max)
+        if condition:
+            filters.append(Listing.condition == condition)
+        if collection_method:
+            filters.append(Listing.collection_method == collection_method)
+        if search:
+            term = f"%{search}%"
+            filters.append(or_(Listing.title.ilike(term), Listing.description.ilike(term)))
 
-    # Count
-    count_q = await db.execute(select(func.count(Listing.id)).where(and_(*filters)))
-    total = count_q.scalar()
+        # Count
+        count_q = await db.execute(select(func.count(Listing.id)).where(and_(*filters)))
+        total = count_q.scalar() or 0
 
-    # Sort
-    order_col = Listing.listed_at.desc()
-    if sort == "price_asc":
-        order_col = Listing.price_ngn.asc()
-    elif sort == "price_desc":
-        order_col = Listing.price_ngn.desc()
-    elif sort == "most_viewed":
-        order_col = Listing.view_count.desc()
+        # Sort
+        order_col = Listing.listed_at.desc()
+        if sort == "price_asc":
+            order_col = Listing.price_ngn.asc()
+        elif sort == "price_desc":
+            order_col = Listing.price_ngn.desc()
+        elif sort == "most_viewed":
+            order_col = Listing.view_count.desc()
 
-    offset = (page - 1) * page_size
-    q = await db.execute(
-        select(Listing).options(selectinload(Listing.photos)).where(and_(*filters)).order_by(order_col)
-        .offset(offset).limit(page_size)
-    )
-    listings = q.scalars().all()
+        offset = (page - 1) * page_size
+        q = await db.execute(
+            select(Listing).options(selectinload(Listing.photos)).where(and_(*filters)).order_by(order_col)
+            .offset(offset).limit(page_size)
+        )
+        listings = q.scalars().all()
 
-    return {
-        "items": [_listing_to_dict(lst) for lst in listings],
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "pages": (total + page_size - 1) // page_size,
-    }
+        return {
+            "items": [_listing_to_dict(lst) for lst in listings],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": (total + page_size - 1) // page_size if total else 0,
+        }
+    except Exception as e:
+        import traceback
+        logger.exception("browse_listings error: %s", e)
+        raise HTTPException(status_code=500, detail=f"Listings error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
 
 
 @router.get("/{listing_id}")
