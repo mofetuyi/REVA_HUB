@@ -106,7 +106,7 @@ def _listing_to_dict(listing: Listing, include_seller: bool = False) -> dict:
         "condition": _val(listing.condition),
         "condition_notes": listing.condition_notes,
         "price_ngn": float(listing.price_ngn) if listing.price_ngn is not None else 0.0,
-        "state": listing.state or "Lagos",
+        "state": getattr(listing, "state", "Lagos") or "Lagos",
         "lga": listing.lga or "Lagos",
         "pickup_address": listing.pickup_address,
         "latitude": listing.latitude,

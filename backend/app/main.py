@@ -218,6 +218,13 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS material_subtypes JSON;",
                 "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS published_at TIMESTAMP WITH TIME ZONE;",
                 "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;",
+                "ALTER TABLE tutorial_sections ADD COLUMN IF NOT EXISTS image_url VARCHAR(1000);",
+                "ALTER TABLE tutorial_sections ADD COLUMN IF NOT EXISTS image_alt VARCHAR(500);",
+                "ALTER TABLE tutorial_sections ADD COLUMN IF NOT EXISTS image_caption TEXT;",
+                "ALTER TABLE tutorial_sections ADD COLUMN IF NOT EXISTS video_platform VARCHAR(50);",
+                "ALTER TABLE tutorial_sections ADD COLUMN IF NOT EXISTS video_id VARCHAR(100);",
+                "ALTER TABLE tutorial_sections ADD COLUMN IF NOT EXISTS video_start_time INTEGER;",
+                "ALTER TABLE listing_photos ADD COLUMN IF NOT EXISTS storage_key VARCHAR(500);",
             ]:
                 try:
                     await db.execute(text(col_sql))

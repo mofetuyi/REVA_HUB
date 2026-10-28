@@ -249,7 +249,6 @@ async def seed_run():
                             unit=item["unit"],
                             condition=item["condition"],
                             price_ngn=item["price_ngn"],
-                            state=item["state"],
                             lga=item["lga"],
                             pickup_address=item["pickup_address"],
                             status=ListingStatus.active,
@@ -432,12 +431,12 @@ async def get_recent_listings(limit: int = 10, db: AsyncSession = Depends(get_db
         {
             "id": str(l.id),
             "title": l.title,
-            "material_type": l.material_type,
-            "category": l.category,
-            "price_naira": float(l.price_naira),
-            "state": l.state,
-            "lga": l.lga,
-            "status": l.status.value,
+            "material_type": l.category.value if hasattr(l.category, "value") else str(l.category),
+            "category": l.category.value if hasattr(l.category, "value") else str(l.category),
+            "price_naira": float(l.price_ngn) if l.price_ngn is not None else 0.0,
+            "state": "Lagos",
+            "lga": l.lga or "Lagos",
+            "status": l.status.value if hasattr(l.status, "value") else str(l.status),
             "created_at": l.created_at.isoformat() if l.created_at else None,
         }
         for l in listings
