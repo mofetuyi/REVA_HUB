@@ -206,13 +206,19 @@ async def seed_run():
 
             # Align tutorials table schema in Neon
             from sqlalchemy import text
-            try:
-                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS seasonal_expiry DATE;"))
-                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS revision_notes TEXT;"))
-                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS material_subtypes JSON;"))
-                await db.commit()
-            except Exception as e_col:
-                results["tutorial_schema_warning"] = str(e_col)
+            for col_sql in [
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS seasonal_expiry DATE;",
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS revision_notes TEXT;",
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS material_subtypes JSON;",
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS published_at TIMESTAMP WITH TIME ZONE;",
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;",
+            ]:
+                try:
+                    await db.execute(text(col_sql))
+                    await db.commit()
+                except Exception as e_col:
+                    await db.rollback()
+                    results.setdefault("tutorial_schema_warnings", []).append(f"{col_sql}: {e_col}")
 
             # Check and seed knitting tutorial
             knit_slug = "how-to-knit-beginner-guide-yarn"

@@ -203,13 +203,19 @@ async def lifespan(app: FastAPI):
 
             # Ensure tutorial table schema is aligned
             from sqlalchemy import text
-            try:
-                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS seasonal_expiry DATE;"))
-                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS revision_notes TEXT;"))
-                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS material_subtypes JSON;"))
-                await db.commit()
-            except Exception as e_col:
-                logger.warning("Tutorial schema notice: %s", e_col)
+            for col_sql in [
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS seasonal_expiry DATE;",
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS revision_notes TEXT;",
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS material_subtypes JSON;",
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS published_at TIMESTAMP WITH TIME ZONE;",
+                "ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;",
+            ]:
+                try:
+                    await db.execute(text(col_sql))
+                    await db.commit()
+                except Exception as e_col:
+                    await db.rollback()
+                    logger.warning("Tutorial schema notice for '%s': %s", col_sql, e_col)
 
             # Auto-seed Knitting Tutorial in Reva Learn
             from app.models.tutorial import Tutorial, TutorialSection, MaterialType, Difficulty, TutorialStatus, AuthorType
