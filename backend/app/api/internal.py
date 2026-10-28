@@ -74,6 +74,47 @@ async def db_test():
         }
 
 
+@router.get("/auth-debug")
+async def auth_debug():
+    import traceback
+    from app.core.database import AsyncSessionLocal
+    from app.models.user import User
+    from app.core.security import verify_password, create_access_token, create_refresh_token, store_refresh_token
+    from app.core.deps import get_redis
+    from sqlalchemy import select
+
+    debug_info = {}
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(User).where(User.phone.in_(["+2347076630396", "07076630396"])))
+            u = result.scalar_one_or_none()
+            debug_info["user_found"] = bool(u)
+            if u:
+                debug_info["user_id"] = str(u.id)
+                debug_info["hashed_pw"] = u.hashed_password[:15] if u.hashed_password else None
+                try:
+                    debug_info["verify_result"] = verify_password("mofe12345", u.hashed_password)
+                except Exception as ve:
+                    debug_info["verify_err"] = str(ve)
+                debug_info["current_mode"] = str(u.current_mode)
+                debug_info["current_mode_type"] = str(type(u.current_mode))
+
+                redis = await get_redis()
+                debug_info["redis_type"] = str(type(redis))
+                at = create_access_token(str(u.id))
+                rt = create_refresh_token(str(u.id))
+                debug_info["at_ok"] = bool(at)
+                try:
+                    await store_refresh_token(str(u.id), rt, redis)
+                    debug_info["store_rf_ok"] = True
+                except Exception as s_err:
+                    debug_info["store_rf_err"] = f"{type(s_err).__name__}: {s_err}\n{traceback.format_exc()}"
+
+            return {"status": "ok", "debug": debug_info}
+    except Exception as ge:
+        return {"status": "error", "error": str(ge), "trace": traceback.format_exc()}
+
+
 @router.get("/seed-run")
 async def seed_run():
     """Manually trigger marketplace listing and tutorial seeding with full exception reporting."""
