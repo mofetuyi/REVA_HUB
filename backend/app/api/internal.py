@@ -32,6 +32,26 @@ async def internal_health_check():
     }
 
 
+@router.get("/db-test")
+async def db_test():
+    """Test raw database connection and return error traceback if failing."""
+    import traceback
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text
+        async with AsyncSessionLocal() as session:
+            res = await session.execute(text("SELECT 1;"))
+            val = res.scalar()
+            return {"status": "ok", "db_response": val, "url_scheme": settings.async_database_url.split("@")[0]}
+    except Exception as e:
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "traceback": traceback.format_exc(),
+        }
+
+
 @router.get("/stats/summary")
 async def get_automation_summary(db: AsyncSession = Depends(get_db)):
     """Summary metrics for n8n digests and alerting."""
