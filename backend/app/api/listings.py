@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
+from sqlalchemy.orm import selectinload
 from pydantic import BaseModel, field_validator
 from slugify import slugify
 import uuid
@@ -82,42 +83,54 @@ class FlagRequest(BaseModel):
     reason: str
 
 
+def _val(x):
+    return x.value if hasattr(x, "value") else str(x) if x is not None else ""
+
+
 def _listing_to_dict(listing: Listing, include_seller: bool = False) -> dict:
+    photos_list = []
+    try:
+        if "photos" in listing.__dict__ and listing.photos:
+            photos_list = [{"url": p.url, "order_index": p.order_index} for p in listing.photos]
+    except Exception:
+        pass
+
     d = {
         "id": str(listing.id),
         "slug": listing.slug,
-        "category": listing.category.value,
+        "category": _val(listing.category),
         "title": listing.title,
         "description": listing.description,
-        "quantity": float(listing.quantity),
-        "unit": listing.unit.value,
-        "condition": listing.condition.value,
+        "quantity": float(listing.quantity) if listing.quantity is not None else 1.0,
+        "unit": _val(listing.unit),
+        "condition": _val(listing.condition),
         "condition_notes": listing.condition_notes,
-        "price_ngn": float(listing.price_ngn),
-        "lga": listing.lga,
+        "price_ngn": float(listing.price_ngn) if listing.price_ngn is not None else 0.0,
+        "state": listing.state or "Lagos",
+        "lga": listing.lga or "Lagos",
         "pickup_address": listing.pickup_address,
         "latitude": listing.latitude,
         "longitude": listing.longitude,
-        "collection_method": listing.collection_method.value,
-        "status": listing.status.value,
-        "moderation_status": listing.moderation_status.value,
-        "view_count": listing.view_count,
-        "listed_at": listing.listed_at.isoformat(),
-        "expires_at": listing.expires_at.isoformat(),
-        "created_at": listing.created_at.isoformat(),
-        "photos": [{"url": p.url, "order_index": p.order_index} for p in listing.photos],
+        "collection_method": _val(listing.collection_method),
+        "status": _val(listing.status),
+        "moderation_status": _val(listing.moderation_status),
+        "view_count": listing.view_count or 0,
+        "listed_at": listing.listed_at.isoformat() if listing.listed_at else None,
+        "expires_at": listing.expires_at.isoformat() if listing.expires_at else None,
+        "created_at": listing.created_at.isoformat() if listing.created_at else None,
+        "photos": photos_list,
     }
-    if include_seller and listing.seller:
+    if include_seller and "seller" in listing.__dict__ and listing.seller:
         s = listing.seller
         d["seller"] = {
             "id": str(s.id),
             "name": s.name,
             "lga": s.lga,
             "average_rating": float(s.average_rating or 0),
-            "review_count": s.review_count,
+            "review_count": s.review_count or 0,
             "is_verified_seller": s.is_verified_seller,
             "avatar_url": s.avatar_url,
-            "member_since": s.created_at.isoformat(),
+            "member_since": s.created_at.isoformat() if s.created_at else None,
         }
     return d
 
@@ -300,7 +313,7 @@ async def browse_listings(
 
     offset = (page - 1) * page_size
     q = await db.execute(
-        select(Listing).where(and_(*filters)).order_by(order_col)
+        select(Listing).options(selectinload(Listing.photos)).where(and_(*filters)).order_by(order_col)
         .offset(offset).limit(page_size)
     )
     listings = q.scalars().all()
@@ -322,7 +335,7 @@ async def get_listing(
 ):
     """Get listing detail by ID or slug."""
     # Try UUID first, then slug
-    q = select(Listing)
+    q = select(Listing).options(selectinload(Listing.photos))
     try:
         uuid.UUID(listing_id)
         q = q.where(Listing.id == listing_id)
@@ -478,7 +491,7 @@ async def related_listings(
         raise HTTPException(status_code=404, detail="Listing not found")
 
     q = await db.execute(
-        select(Listing)
+        select(Listing).options(selectinload(Listing.photos))
         .where(
             Listing.id != listing.id,
             Listing.category == listing.category,
