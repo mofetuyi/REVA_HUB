@@ -26,34 +26,40 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-gold-500 hover:bg-gold-600 text-dark-900 font-semibold px-4 py-2 rounded-lg
-           transition-colors duration-200 focus:outline-none focus-visible:ring-2
-           focus-visible:ring-gold-400 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-brandGreen-900 hover:bg-brandGreen-950 text-white font-semibold px-4 py-2 rounded-xl
+           border border-gold-500/50 shadow-sm transition-all duration-200 focus:outline-none
+           focus-visible:ring-2 focus-visible:ring-gold-400 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-gold {
+    @apply bg-gold-500 hover:bg-gold-600 text-brandGreen-950 font-bold px-4 py-2 rounded-xl
+           border border-gold-300 shadow-sm transition-all duration-200 focus:outline-none
+           focus-visible:ring-2 focus-visible:ring-brandGreen-700 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply bg-cream-100 hover:bg-cream-200 text-dark-900 font-medium px-4 py-2 rounded-lg
-           border border-cream-200 transition-colors duration-200;
+    @apply bg-white hover:bg-brandGreen-50 text-brandGreen-900 font-semibold px-4 py-2 rounded-xl
+           border border-brandGreen-200 transition-colors duration-200;
   }
 
   .btn-ghost {
-    @apply text-dark-800 hover:text-gold-600 hover:bg-gold-50 px-4 py-2 rounded-lg
+    @apply text-dark-800 hover:text-brandGreen-800 hover:bg-brandGreen-50 px-4 py-2 rounded-xl
            transition-colors duration-200;
   }
 
   .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg
+    @apply bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-xl
            transition-colors duration-200;
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-cream-100 overflow-hidden;
+    @apply bg-white rounded-xl shadow-sm border border-cream-200 hover:border-gold-300 transition-all overflow-hidden;
   }
 
   .input-field {
     @apply w-full px-3 py-2 rounded-lg border border-cream-200 bg-white text-dark-900
-           placeholder-cream-200 focus:outline-none focus:ring-2 focus:ring-gold-400
-           focus:border-gold-400 transition-colors;
+           placeholder-cream-200 focus:outline-none focus:ring-2 focus:ring-brandGreen-600
+           focus:border-brandGreen-600 transition-colors;
   }
 
   .label {
@@ -61,19 +67,19 @@
   }
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
   }
 
   .verified-badge {
-    @apply badge bg-gold-500 text-dark-900;
+    @apply badge bg-gold-500 text-brandGreen-950 border border-gold-300;
   }
 
   .category-badge {
-    @apply badge bg-forest-800 text-white;
+    @apply badge bg-brandGreen-900 text-white border border-gold-500/30;
   }
 
   .status-badge-active {
-    @apply badge bg-green-100 text-green-800;
+    @apply badge bg-brandGreen-100 text-brandGreen-900 border border-brandGreen-300;
   }
 
   .status-badge-pending {

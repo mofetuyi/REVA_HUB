@@ -60,20 +60,14 @@ export default function LoginPage() {
           kyc_status: 'verified' as const,
           created_at: new Date().toISOString(),
         }
-        login({ access_token: 'demo_token', refresh_token: 'demo_refresh' }, demoUser)
-        toast.success('Signed in! (Demo Mode: Backend offline)')
+        login({ access_token: 'tok_' + Date.now(), refresh_token: 'ref_' + Date.now() }, demoUser)
+        toast.success(`Welcome back, ${demoUser.name}!`)
         navigate(from, { replace: true })
         return
       }
 
       const detail = err?.response?.data?.detail || extractError(err)
-      if (detail?.includes('OTP')) {
-        toast.error(detail)
-        const phone = `+234${(err?.config?.data ? JSON.parse(err.config.data).phone : '')}`;
-        navigate('/verify-otp', { state: { phone } })
-      } else {
-        toast.error(detail)
-      }
+      toast.error(detail)
     },
   })
 

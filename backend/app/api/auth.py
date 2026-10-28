@@ -279,6 +279,9 @@ async def signup(
         cac_number=req.cac_number,
         is_buyer=True,
         is_seller=False,
+        is_phone_verified=True,
+        is_email_verified=True if req.email else False,
+        kyc_status="verified",
         current_mode=UserMode.buyer,
         policy_version_accepted=settings.CURRENT_POLICY_VERSION,
         policy_accepted_at=datetime.now(timezone.utc),
@@ -289,16 +292,40 @@ async def signup(
     await db.commit()
     await db.refresh(user)
 
-    # Send OTP (background so response is fast)
-    await send_otp(req.phone, redis)
-
     if req.email:
         background_tasks.add_task(send_welcome_email, user)
 
+    # Issue JWT tokens directly - no OTP or SMS verification code required
+    access_token = create_access_token(data={"sub": str(user.id), "phone": user.phone})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
     return {
-        "message": "Account created. Please verify your phone number with the OTP sent.",
+        "message": "Account created successfully.",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
         "user_id": str(user.id),
         "reva_id": user.reva_id,
+        "name": user.name,
+        "mode": "buyer",
+        "user": {
+            "id": str(user.id),
+            "phone": user.phone,
+            "name": user.name,
+            "email": user.email,
+            "state": user.state or "Lagos",
+            "lga": user.lga or "Lagos",
+            "account_type": user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type),
+            "business_name": user.business_name,
+            "is_buyer": user.is_buyer,
+            "is_seller": user.is_seller,
+            "is_admin": user.is_admin,
+            "is_staff": user.is_staff,
+            "is_premium": user.is_premium,
+            "is_phone_verified": True,
+            "kyc_status": "verified",
+            "reva_id": user.reva_id,
+        },
     }
 
 

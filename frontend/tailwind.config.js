@@ -4,14 +4,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Reva Gold (from logo)
+        // Signature Reva Colors: Dark Green, Crisp White, and Rich Gold
+        brandGreen: {
+          50:  '#E8F5E9',
+          100: '#C8E6C9',
+          200: '#A5D6A7',
+          300: '#81C784',
+          400: '#4CAF50',
+          500: '#2E7D32',
+          600: '#1B5E20',
+          700: '#144D1B',
+          800: '#0F3B14',
+          900: '#0B3D1B',
+          950: '#062E12',
+        },
+        // Reva Gold
         gold: {
           50:  '#FDF8E7',
           100: '#F9EEC4',
           200: '#F3DC8A',
           300: '#ECC84F',
           400: '#E8B84B',
-          500: '#C9A227',
+          500: '#D4AF37',
           600: '#A07818',
           700: '#7A570F',
           800: '#543B09',
@@ -31,10 +45,10 @@ export default {
         },
         // Sustainable green
         forest: {
-          600: '#4A7C28',
-          700: '#3A6420',
-          800: '#2D5016',
-          900: '#1E3610',
+          600: '#1B5E20',
+          700: '#144D1B',
+          800: '#0F3B14',
+          900: '#062E12',
         },
       },
       fontFamily: {

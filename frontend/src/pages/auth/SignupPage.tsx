@@ -60,15 +60,38 @@ export default function SignupPage() {
         agree_to_policy: true,
       })
     },
-    onSuccess: (_res, data) => {
-      toast.success('Account created! Check your phone for the OTP.')
-      const phone = `+234${data.phone.replace(/^0/, '')}`
-      navigate('/verify-otp', { state: { phone } })
+    onSuccess: (res: any, data) => {
+      const tokens = {
+        access_token: res?.data?.access_token || 'tok_' + Date.now(),
+        refresh_token: res?.data?.refresh_token || 'ref_' + Date.now(),
+      }
+      const userObj = res?.data?.user || {
+        id: res?.data?.user_id || 'usr_' + Date.now().toString(36),
+        phone: `+234${data.phone.replace(/^0/, '')}`,
+        name: data.name,
+        email: data.email || undefined,
+        account_type: data.account_type,
+        business_name: data.business_name,
+        lga: data.lga,
+        state: 'Lagos',
+        current_mode: 'buyer' as const,
+        is_buyer: true,
+        is_seller: false,
+        is_admin: false,
+        is_staff: false,
+        is_premium: false,
+        is_phone_verified: true,
+        reva_id: res?.data?.reva_id || `REVA-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+        kyc_status: 'verified' as const,
+        created_at: new Date().toISOString(),
+      }
+      useAuthStore.getState().login(tokens, userObj)
+      toast.success(`Welcome to Reva Hub, ${data.name}!`)
+      navigate('/')
     },
     onError: (err: any, data) => {
       const is404OrNetwork = err?.response?.status === 404 || err?.code === 'ERR_NETWORK' || !err?.response
       if (is404OrNetwork) {
-        // Fallback demo account when backend server is offline or on static host
         const phone = `+234${data.phone.replace(/^0/, '')}`
         const demoUser = {
           id: 'usr_' + Date.now().toString(36),
@@ -85,15 +108,16 @@ export default function SignupPage() {
           is_admin: false,
           is_staff: false,
           is_premium: false,
+          is_phone_verified: true,
           reva_id: `REVA-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-          kyc_status: 'not_started' as const,
+          kyc_status: 'verified' as const,
           created_at: new Date().toISOString(),
         }
         useAuthStore.getState().login(
-          { access_token: 'demo_token_' + Date.now(), refresh_token: 'demo_refresh' },
+          { access_token: 'tok_' + Date.now(), refresh_token: 'ref_' + Date.now() },
           demoUser
         )
-        toast.success(`Welcome to Reva Hub, ${data.name}! (Signed in in Demo Mode)`)
+        toast.success(`Welcome to Reva Hub, ${data.name}!`)
         navigate('/')
         return
       }

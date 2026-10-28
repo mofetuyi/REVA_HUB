@@ -111,6 +111,35 @@ export default function BrowsePage() {
 
   return (
     <div className="space-y-6">
+      {/* Signature Reva Hero Banner: Dark Green, Crisp White & Rich Gold */}
+      <div className="rounded-2xl bg-gradient-to-br from-brandGreen-950 via-brandGreen-900 to-brandGreen-950 text-white p-6 sm:p-8 border border-gold-500/30 shadow-md relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="relative z-10 max-w-3xl space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold-500/20 border border-gold-400/50 text-gold-300 text-xs font-semibold tracking-wide">
+            <span>✨ LAGOS CIRCULAR HUB</span>
+            <span>•</span>
+            <span className="text-white">RECOVERED STOCKS & RAW MATERIALS</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-display font-bold text-white tracking-tight leading-tight">
+            Buy & Sell Recovered Materials in Lagos
+          </h1>
+          <p className="text-cream-100 text-sm sm:text-base leading-relaxed max-w-2xl">
+            Directly connect with certified recyclers, workshops, and makers trading clean PET flakes, timber, textile scraps, leather hides, cardboard bales, and upcycled circular products.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-medium text-white/90">
+            <span className="flex items-center gap-1 bg-brandGreen-800/80 px-3 py-1 rounded-lg border border-gold-500/20">
+              <span className="text-gold-400">✓</span> Instant Escrow Checkout
+            </span>
+            <span className="flex items-center gap-1 bg-brandGreen-800/80 px-3 py-1 rounded-lg border border-gold-500/20">
+              <span className="text-gold-400">✓</span> Verified Lagos Suppliers
+            </span>
+            <span className="flex items-center gap-1 bg-brandGreen-800/80 px-3 py-1 rounded-lg border border-gold-500/20">
+              <span className="text-gold-400">✓</span> Zero Landfill Waste
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Search bar */}
       <div className="flex gap-3">
         <div className="relative flex-1">

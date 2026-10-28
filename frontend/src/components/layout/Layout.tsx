@@ -12,40 +12,40 @@ export function Layout() {
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Outlet />
       </main>
-      <footer className="bg-dark-900 text-cream-100 pt-10 pb-6 mt-auto border-t border-dark-800">
+      <footer className="bg-brandGreen-950 text-white pt-10 pb-6 mt-auto border-t border-gold-500/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-dark-800">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-brandGreen-800">
             <div className="flex items-center gap-2.5">
               <RevaLogoIcon className="w-8 h-8" />
               <div>
-                <span className="font-display font-bold text-gold-400 text-lg">Reva Hub</span>
-                <p className="text-xs text-cream-400">Lagos recovered materials marketplace & learning platform.</p>
+                <span className="font-display font-bold text-gold-300 text-lg">Reva Hub</span>
+                <p className="text-xs text-cream-200">Lagos circular economy marketplace & upcycling platform.</p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-cream-300">
-              <Link to="/listings" className="hover:text-gold-400 transition-colors">Browse Materials</Link>
-              <span>·</span>
-              <Link to="/learn" className="hover:text-gold-400 transition-colors">Reva Hub Learn</Link>
-              <span>·</span>
-              <Link to="/premium" className="hover:text-gold-400 transition-colors">Premium</Link>
-              <span>·</span>
-              <Link to="/policy" className="hover:text-gold-400 transition-colors">Trust & Safety</Link>
-              <span>·</span>
-              <Link to="/terms" className="hover:text-gold-400 transition-colors">Terms</Link>
-              <span>·</span>
-              <Link to="/privacy" className="hover:text-gold-400 transition-colors">Privacy</Link>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-cream-100">
+              <Link to="/listings" className="hover:text-gold-300 transition-colors">Browse Materials</Link>
+              <span className="text-gold-500/60">•</span>
+              <Link to="/learn" className="hover:text-gold-300 transition-colors">Reva Hub Learn</Link>
+              <span className="text-gold-500/60">•</span>
+              <Link to="/premium" className="hover:text-gold-300 transition-colors">Premium</Link>
+              <span className="text-gold-500/60">•</span>
+              <Link to="/policy" className="hover:text-gold-300 transition-colors">Trust & Safety</Link>
+              <span className="text-gold-500/60">•</span>
+              <Link to="/terms" className="hover:text-gold-300 transition-colors">Terms</Link>
+              <span className="text-gold-500/60">•</span>
+              <Link to="/privacy" className="hover:text-gold-300 transition-colors">Privacy</Link>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-dark-500">
-            <p>© {new Date().getFullYear()} Reva Hub Nigeria. Lagos, Nigeria.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-cream-300">
+            <p>© {new Date().getFullYear()} Reva Hub Nigeria. Lagos, Nigeria. The Circular Economy Standard.</p>
 
             {/* Discreet, hidden staff login in the bottom corner */}
             <div className="flex items-center gap-3">
               <Link
                 to="/staff/login"
-                className="text-dark-600 hover:text-dark-400 text-[11px] transition-colors inline-flex items-center gap-1 opacity-50 hover:opacity-100 cursor-pointer"
+                className="text-cream-400 hover:text-gold-300 text-[11px] transition-colors inline-flex items-center gap-1 opacity-60 hover:opacity-100 cursor-pointer"
                 title="Authorised Staff Access"
               >
                 <Lock className="w-2.5 h-2.5" />
@@ -68,15 +68,15 @@ export function Layout() {
 
 export function AuthLayout({ children }: { children?: React.ReactNode } = {}) {
   return (
-    <div className="min-h-screen bg-dark-900 flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-b from-brandGreen-950 via-brandGreen-900 to-brandGreen-950 flex flex-col items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <Link to="/" className="flex justify-center mb-8">
           <div className="flex items-center gap-3">
             <RevaLogoIcon className="w-12 h-12" />
-            <span className="font-display font-bold text-gold-400 text-3xl">Reva Hub</span>
+            <span className="font-display font-bold text-gold-300 text-3xl">Reva Hub</span>
           </div>
         </Link>
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gold-500/30">
           {children || <Outlet />}
         </div>
       </div>

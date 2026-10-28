@@ -34,7 +34,24 @@ export function Header() {
   })
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-cream-100 shadow-sm">
+    <header className="sticky top-0 z-40 bg-white border-b border-gold-500/20 shadow-sm">
+      {/* Signature Top Banner: Dark Green, Crisp White & Rich Gold */}
+      <div className="bg-brandGreen-950 text-white py-1.5 px-4 text-xs border-b border-gold-500/30">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-gold-400 animate-pulse" />
+            <span className="font-medium text-white tracking-wide">
+              Lagos Circular Economy Marketplace: <span className="text-gold-300 font-semibold">Recovered Plastics, Wood, Fabric & Circular Goods</span>
+            </span>
+          </div>
+          <div className="hidden sm:flex items-center gap-4 text-white/85 text-[11px]">
+            <span className="text-gold-300 font-medium">✓ Paystack Escrow Protected</span>
+            <span className="text-gold-500/50">•</span>
+            <span className="text-white">100% Verified Lagos Suppliers</span>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -44,27 +61,27 @@ export function Header() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
-            <Link to="/" className="px-3 py-2 text-sm font-medium text-dark-700 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors">
+            <Link to="/" className="px-3 py-2 text-sm font-semibold text-dark-800 hover:text-brandGreen-900 hover:bg-brandGreen-50 rounded-lg transition-colors">
               Browse
             </Link>
-            <Link to="/learn" className="px-3 py-2 text-sm font-medium text-dark-700 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors">
+            <Link to="/learn" className="px-3 py-2 text-sm font-semibold text-dark-800 hover:text-brandGreen-900 hover:bg-brandGreen-50 rounded-lg transition-colors">
               Learn
             </Link>
-            <Link to="/premium" className="px-3 py-2 text-sm font-semibold text-gold-600 hover:text-gold-700 hover:bg-gold-50 rounded-lg transition-colors inline-flex items-center gap-1">
+            <Link to="/premium" className="px-3 py-2 text-sm font-bold text-gold-600 hover:text-gold-700 hover:bg-gold-50 rounded-lg transition-colors inline-flex items-center gap-1">
               <Crown className="w-3.5 h-3.5 text-gold-500" /> Premium
             </Link>
             {isAuthenticated && mode === 'seller' && (
-              <Link to="/my-listings" className="px-3 py-2 text-sm font-medium text-dark-700 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors">
+              <Link to="/my-listings" className="px-3 py-2 text-sm font-semibold text-dark-800 hover:text-brandGreen-900 hover:bg-brandGreen-50 rounded-lg transition-colors">
                 My Listings
               </Link>
             )}
             {isAuthenticated && (
-              <Link to="/orders" className="px-3 py-2 text-sm font-medium text-dark-700 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors">
+              <Link to="/orders" className="px-3 py-2 text-sm font-semibold text-dark-800 hover:text-brandGreen-900 hover:bg-brandGreen-50 rounded-lg transition-colors">
                 Orders
               </Link>
             )}
             {isAuthenticated && (
-              <Link to="/offers" className="px-3 py-2 text-sm font-medium text-dark-700 hover:text-gold-600 hover:bg-gold-50 rounded-lg transition-colors">
+              <Link to="/offers" className="px-3 py-2 text-sm font-semibold text-dark-800 hover:text-brandGreen-900 hover:bg-brandGreen-50 rounded-lg transition-colors">
                 Offers
               </Link>
             )}
