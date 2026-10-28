@@ -38,11 +38,33 @@ async def db_test():
     import traceback
     try:
         from app.core.database import AsyncSessionLocal
-        from sqlalchemy import text
+        from sqlalchemy import text, select
+        from app.models.user import User
+        from app.models.listing import Listing
         async with AsyncSessionLocal() as session:
-            res = await session.execute(text("SELECT 1;"))
-            val = res.scalar()
-            return {"status": "ok", "db_response": val, "url_scheme": settings.async_database_url.split("@")[0]}
+            r1 = await session.execute(text("SELECT 1;"))
+            raw_val = r1.scalar()
+
+            try:
+                r2 = await session.execute(select(User).limit(1))
+                u = r2.scalar_one_or_none()
+                user_res = f"User query OK, found: {u.id if u else 'none'}"
+            except Exception as eu:
+                user_res = f"User query FAILED: {type(eu).__name__}: {eu}\n{traceback.format_exc()}"
+
+            try:
+                r3 = await session.execute(select(Listing).limit(1))
+                l = r3.scalar_one_or_none()
+                listing_res = f"Listing query OK, found: {l.id if l else 'none'}"
+            except Exception as el:
+                listing_res = f"Listing query FAILED: {type(el).__name__}: {el}\n{traceback.format_exc()}"
+
+            return {
+                "status": "ok",
+                "raw_val": raw_val,
+                "user_res": user_res,
+                "listing_res": listing_res,
+            }
     except Exception as e:
         return {
             "status": "error",
