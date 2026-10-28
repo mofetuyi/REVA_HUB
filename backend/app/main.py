@@ -198,6 +198,19 @@ async def lifespan(app: FastAPI):
                     photo = ListingPhoto(listing_id=lst.id, url=item["photo"], order_index=0)
                     db.add(photo)
 
+            await db.commit()
+            logger.info("Marketplace listings seeded and committed successfully.")
+
+            # Ensure tutorial table schema is aligned
+            from sqlalchemy import text
+            try:
+                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS seasonal_expiry DATE;"))
+                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS revision_notes TEXT;"))
+                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS material_subtypes JSON;"))
+                await db.commit()
+            except Exception as e_col:
+                logger.warning("Tutorial schema notice: %s", e_col)
+
             # Auto-seed Knitting Tutorial in Reva Learn
             from app.models.tutorial import Tutorial, TutorialSection, MaterialType, Difficulty, TutorialStatus, AuthorType
             knit_slug = "how-to-knit-beginner-guide-yarn"

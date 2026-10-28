@@ -202,6 +202,18 @@ async def seed_run():
                 except Exception as sub_e:
                     results["errors"].append({"title": item["title"], "error": str(sub_e), "trace": traceback.format_exc()})
 
+            await db.commit()
+
+            # Align tutorials table schema in Neon
+            from sqlalchemy import text
+            try:
+                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS seasonal_expiry DATE;"))
+                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS revision_notes TEXT;"))
+                await db.execute(text("ALTER TABLE tutorials ADD COLUMN IF NOT EXISTS material_subtypes JSON;"))
+                await db.commit()
+            except Exception as e_col:
+                results["tutorial_schema_warning"] = str(e_col)
+
             # Check and seed knitting tutorial
             knit_slug = "how-to-knit-beginner-guide-yarn"
             existing_knit = (await db.execute(select(Tutorial).where(Tutorial.slug == knit_slug))).scalar_one_or_none()
