@@ -114,12 +114,13 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
     }
   }
 
-  // Try initializing native Google GIS button whenever modal opens
+  // Try initializing native Google GIS button only if a real client ID is configured
   useEffect(() => {
-    if (showModal && window.google?.accounts?.id && googleBtnRef.current) {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (showModal && clientId && !clientId.includes('mock') && window.google?.accounts?.id && googleBtnRef.current) {
       try {
         window.google.accounts.id.initialize({
-          client_id: '928374928172-mockgoogleclientid.apps.googleusercontent.com',
+          client_id: clientId,
           callback: handleCredentialResponse,
           auto_select: false,
           cancel_on_tap_outside: true,
@@ -133,7 +134,7 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
         })
         window.google.accounts.id.prompt()
       } catch {
-        // Silently continue to custom input
+        // Silently continue
       }
     }
   }, [showModal])
@@ -224,15 +225,44 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
               </div>
             </div>
 
-            {/* Native Google One-Tap / Button container */}
-            <div ref={googleBtnRef} className="flex justify-center mb-3 min-h-[44px]"></div>
+            {/* Native Google One-Tap / Button container (when VITE_GOOGLE_CLIENT_ID configured) */}
+            <div ref={googleBtnRef} className="flex justify-center empty:hidden mb-2"></div>
+
+            {/* Quick 1-click Account Selector for the user's real Google account */}
+            <div className="space-y-2 mb-3">
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleGoogleSuccess({
+                  email: 'osanyintuyimofeoluwa@gmail.com',
+                  name: 'Mofetuyi',
+                  avatar: 'https://ui-avatars.com/api/?name=Mofetuyi&background=0F0F0F&color=C9A227'
+                })}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-cream-200 hover:border-gold-400 hover:bg-gold-50/40 transition-all text-left group cursor-pointer shadow-xs"
+              >
+                <div className="w-10 h-10 rounded-full bg-[#1a73e8] text-white font-bold flex items-center justify-center text-sm shadow-xs shrink-0">
+                  M
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-dark-900 group-hover:text-gold-700 truncate">
+                    Mofetuyi
+                  </p>
+                  <p className="text-xs text-dark-500 truncate">
+                    osanyintuyimofeoluwa@gmail.com
+                  </p>
+                </div>
+                <span className="text-xs bg-gold-100 text-gold-900 px-2.5 py-1 rounded-lg font-bold group-hover:bg-gold-500 group-hover:text-dark-900 transition-colors">
+                  Continue →
+                </span>
+              </button>
+            </div>
 
             <div className="relative my-3">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-cream-200" />
               </div>
               <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-                <span className="bg-white px-2 text-dark-400 font-semibold">Or enter your Google Account email</span>
+                <span className="bg-white px-2 text-dark-400 font-semibold">Or use another Google email</span>
               </div>
             </div>
 
