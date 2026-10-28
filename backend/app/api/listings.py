@@ -43,6 +43,7 @@ class ListingCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     collection_method: CollectionMethod = CollectionMethod.buyer_arranges
+    product_group: Optional[str] = None
     photo_urls: list[str] = []
 
     @field_validator("quantity")
@@ -224,10 +225,18 @@ async def create_listing(
         slug = f"{base_slug}-{counter}"
         counter += 1
 
+    group_val = req.product_group
+    if not group_val or group_val not in ["raw_materials", "upcycled_products"]:
+        if _val(req.category) == "circular_products" or any(kw in req.title.lower() for kw in ["furniture", "journal", "tote bag", "refurbished", "bag", "stool", "chair", "desk"]):
+            group_val = "upcycled_products"
+        else:
+            group_val = "raw_materials"
+
     listing = Listing(
         seller_id=current_user.id,
         slug=slug,
         category=req.category,
+        product_group=group_val,
         title=req.title,
         description=req.description,
         quantity=req.quantity,

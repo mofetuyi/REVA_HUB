@@ -9,10 +9,11 @@ import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
-import { LAGOS_LGAS, MATERIAL_CATEGORIES, LISTING_UNITS, LISTING_CONDITIONS, COLLECTION_METHODS } from '../../lib/nigeriaData'
+import { LAGOS_LGAS, MATERIAL_CATEGORIES, RAW_MATERIAL_CATEGORIES, UPCYCLED_PRODUCT_CATEGORIES, LISTING_UNITS, LISTING_CONDITIONS, COLLECTION_METHODS } from '../../lib/nigeriaData'
 
 const schema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(255),
+  product_group: z.enum(['raw_materials', 'upcycled_products']).default('raw_materials'),
   category: z.enum(['plastic', 'fabric', 'leather', 'wood', 'cardboard', 'clothes', 'circular_products', 'other']),
   description: z.string().min(20, 'Please provide a more detailed description'),
   quantity: z.number({ invalid_type_error: 'Enter a number' }).positive('Must be > 0'),
@@ -36,10 +37,11 @@ export default function CreateListingPage() {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { collection_method: 'buyer_arranges', unit: 'kg', condition: 'used' },
+    defaultValues: { product_group: 'raw_materials', collection_method: 'buyer_arranges', unit: 'kg', condition: 'used' },
   })
 
   const category = watch('category')
+  const productGroup = watch('product_group') || 'raw_materials'
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => api.post('/listings', { ...data, photo_urls: photos }),
@@ -143,11 +145,54 @@ export default function CreateListingPage() {
 
         <Input label="Listing title" placeholder="e.g. Clean plastic bottles — 50kg bales" required {...register('title')} error={errors.title?.message} />
 
+        {/* Product Group Selector */}
         <div>
-          <label className="label">Material category <span className="text-red-500">*</span></label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {MATERIAL_CATEGORIES.map((c) => (
-              <label key={c.value} className={`flex items-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-colors text-sm ${category === c.value ? 'border-gold-500 bg-gold-50' : 'border-cream-200 hover:border-gold-300'}`}>
+          <label className="label">Product Group <span className="text-red-500">*</span></label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+            <button
+              type="button"
+              onClick={() => {
+                setValue('product_group', 'raw_materials')
+                if (category === 'circular_products') {
+                  setValue('category', 'plastic')
+                }
+              }}
+              className={`p-3.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                productGroup !== 'upcycled_products'
+                  ? 'border-brandGreen-800 bg-brandGreen-50 ring-1 ring-brandGreen-800'
+                  : 'border-cream-200 hover:border-brandGreen-300 bg-white'
+              }`}
+            >
+              <div className="font-bold text-dark-900 text-sm flex items-center gap-1.5">
+                <span>🪵</span> Raw Materials Group
+              </div>
+              <p className="text-xs text-dark-500 mt-1">Industrial offcuts, scrap bales, flakes & recovered feedstocks</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setValue('product_group', 'upcycled_products')
+                setValue('category', 'circular_products')
+              }}
+              className={`p-3.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                productGroup === 'upcycled_products'
+                  ? 'border-gold-500 bg-gold-50 ring-1 ring-gold-500'
+                  : 'border-cream-200 hover:border-gold-300 bg-white'
+              }`}
+            >
+              <div className="font-bold text-dark-900 text-sm flex items-center gap-1.5">
+                <span>✨</span> Upcycled Products Group
+              </div>
+              <p className="text-xs text-dark-500 mt-1">Artisan wares, refurbished furniture, fashion & finished goods</p>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="label">Category <span className="text-red-500">*</span></label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {(productGroup === 'upcycled_products' ? UPCYCLED_PRODUCT_CATEGORIES : RAW_MATERIAL_CATEGORIES).map((c) => (
+              <label key={c.value} className={`flex items-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-colors text-sm ${category === c.value ? 'border-gold-500 bg-gold-50 font-semibold' : 'border-cream-200 hover:border-gold-300'}`}>
                 <input type="radio" value={c.value} className="sr-only" {...register('category')} />
                 <span>{c.icon}</span>
                 <span className="font-medium">{c.label}</span>

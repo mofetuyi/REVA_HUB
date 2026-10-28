@@ -168,7 +168,7 @@ export default function BrowsePage() {
                   : 'text-dark-700 hover:text-dark-900 hover:bg-white/70'
               }`}
             >
-              🌟 All Items ({data?.total ?? 14})
+              🌟 All Items {data?.total !== undefined ? `(${data.total})` : ''}
             </button>
             <button
               onClick={() => {

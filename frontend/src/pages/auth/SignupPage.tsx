@@ -184,7 +184,7 @@ export default function SignupPage() {
             {form1.formState.errors.phone && (
               <p className="mt-1 text-sm text-red-600">{form1.formState.errors.phone.message}</p>
             )}
-            <p className="text-xs text-dark-500 mt-1">We'll send a verification code to this number</p>
+            <p className="text-xs text-dark-500 mt-1">Enter your active 10-digit Nigerian mobile number</p>
           </div>
           <Input
             label="Email (optional)"
