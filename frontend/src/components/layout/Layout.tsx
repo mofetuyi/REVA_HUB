@@ -26,7 +26,7 @@ export function Layout() {
             <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-cream-100">
               <Link to="/listings" className="hover:text-gold-300 transition-colors">Browse Materials</Link>
               <span className="text-gold-500/60">•</span>
-              <Link to="/learn" className="hover:text-gold-300 transition-colors">Reva Hub Learn</Link>
+              <Link to="/learn" className="hover:text-gold-300 transition-colors">Reva Learn</Link>
               <span className="text-gold-500/60">•</span>
               <Link to="/premium" className="hover:text-gold-300 transition-colors">Premium</Link>
               <span className="text-gold-500/60">•</span>

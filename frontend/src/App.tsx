@@ -229,43 +229,57 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Feature cards */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          {
-            icon: '♻️',
-            title: 'Reva Hub',
-            desc: 'List and discover plastics, fabric, wood, cardboard, and other reusable materials. Arrange collection directly.',
-            link: '/listings',
-            cta: 'Browse Listings',
-          },
-          {
-            icon: '📚',
-            title: 'Reva Hub Learn',
-            desc: 'Tutorials and skill paths that show you how to turn recovered materials into useful, sellable products.',
-            link: '/learn',
-            cta: 'Explore Tutorials',
-          },
-          {
-            icon: '✅',
-            title: 'Verified Sellers',
-            desc: 'KYC-verified sellers with strong track records earn a Verified badge. Trade with confidence.',
-            link: '/listings',
-            cta: 'Find Verified Sellers',
-          },
-        ].map(card => (
-          <div key={card.title} className="bg-white rounded-2xl p-6 shadow-sm border border-cream-200 flex flex-col gap-3">
-            <span className="text-3xl">{card.icon}</span>
-            <h2 className="font-display font-bold text-xl text-dark-900">{card.title}</h2>
-            <p className="text-dark-600 text-sm flex-1">{card.desc}</p>
-            <Link
-              to={card.link}
-              className="text-gold-600 hover:text-gold-700 font-semibold text-sm mt-1"
-            >
-              {card.cta} →
-            </Link>
+      {/* 3 Core Features */}
+      <section className="space-y-6">
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-700 text-xs font-bold tracking-wide uppercase">
+            🌟 3 Core Features
           </div>
-        ))}
+          <h2 className="text-2xl md:text-3xl font-display font-bold text-dark-900">
+            Recover. Upcycle. Learn.
+          </h2>
+          <p className="text-sm text-dark-600 max-w-xl mx-auto">
+            Explore the three essential pillars powering Lagos's premier circular economy platform.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            {
+              icon: '✨',
+              title: 'Upcycled Products Hub',
+              desc: 'Discover artisan-crafted lifestyle wares, restored hardwood furniture, student study desks, and circular denim fashion made from 100% recovered materials.',
+              link: '/listings?group=upcycled_products',
+              cta: 'Explore Upcycled Goods',
+            },
+            {
+              icon: '🌿',
+              title: 'Recoverable Materials Hub',
+              desc: 'Directly source clean sorted feedstocks, organic agro-waste, rice husk, palm kernel shells, recovered plastics, and timber across Lagos.',
+              link: '/listings?group=circular_materials',
+              cta: 'Browse Recoverable Hub',
+            },
+            {
+              icon: '📚',
+              title: 'Reva Learn',
+              desc: 'Step-by-step masterclasses and DIY tutorials teaching you how to transform recovered textiles and materials into valuable, market-ready products.',
+              link: '/learn',
+              cta: 'Explore Tutorials',
+            },
+          ].map(card => (
+            <div key={card.title} className="bg-white rounded-2xl p-6 shadow-sm border border-cream-200 flex flex-col gap-3 hover:border-gold-400/60 transition-all hover:shadow-md">
+              <span className="text-3xl">{card.icon}</span>
+              <h3 className="font-display font-bold text-xl text-dark-900">{card.title}</h3>
+              <p className="text-dark-600 text-sm flex-1 leading-relaxed">{card.desc}</p>
+              <Link
+                to={card.link}
+                className="text-gold-600 hover:text-gold-700 font-semibold text-sm mt-1 inline-flex items-center gap-1"
+              >
+                {card.cta} →
+              </Link>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Disclaimer */}
