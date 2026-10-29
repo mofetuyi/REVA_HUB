@@ -24,7 +24,7 @@ const schema = z.object({
   lga: z.string().min(1, 'Select your LGA'),
   pickup_address: z.string().optional(),
   collection_method: z.string().default('delivery'),
-  photo_urls: z.array(z.string().url()).min(1, 'At least one photo required').max(5),
+  photo_urls: z.array(z.string().min(1)).min(1, 'At least one photo required').max(5),
 })
 
 type FormData = z.infer<typeof schema>

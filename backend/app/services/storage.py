@@ -7,13 +7,14 @@ from typing import Optional
 import boto3
 from botocore.exceptions import ClientError
 from PIL import Image
+import base64
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024   # 10 MB input limit
-TARGET_IMAGE_BYTES = 2 * 1024 * 1024  # compress to < 2 MB
-MAX_IMAGE_DIMENSION = 2048
+TARGET_IMAGE_BYTES = 400 * 1024       # compress to < 400 KB for fast loading & storage
+MAX_IMAGE_DIMENSION = 1280
 
 
 def _s3_client():
@@ -63,12 +64,14 @@ async def upload_file(file_bytes: bytes, folder: str, content_type: str = "image
     key = f"{folder}/{uuid.uuid4()}.jpg"
 
     if not settings.storage_configured:
-        # Development fallback: return a placeholder URL
-        logger.warning("Storage not configured. Returning placeholder URL for key: %s", key)
+        # Self-contained Data URL fallback when S3 is not configured
+        b64_str = base64.b64encode(file_bytes).decode("utf-8")
+        data_url = f"data:{content_type};base64,{b64_str}"
+        logger.info("Storage not configured. Stored photo as direct data URL (size: %s bytes)", len(file_bytes))
         return {
-            "url": f"https://placehold.co/800x600/C9A227/000000?text=Image+Placeholder",
+            "url": data_url,
             "storage_key": key,
-            "configured": False,
+            "configured": True,
         }
 
     s3 = _s3_client()

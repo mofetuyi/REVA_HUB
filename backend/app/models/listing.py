@@ -150,7 +150,7 @@ class ListingPhoto(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     listing_id = Column(UUID(as_uuid=True), ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
-    url = Column(String(1000), nullable=False)
+    url = Column(Text, nullable=False)
     storage_key = Column(String(500), nullable=True)
     order_index = Column(Integer, nullable=False, default=0)
     created_at = Column(

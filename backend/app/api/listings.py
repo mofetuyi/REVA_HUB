@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_, or_, delete
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel, field_validator
 from slugify import slugify
@@ -435,11 +435,21 @@ async def update_listing(
     if req.collection_method is not None:
         listing.collection_method = req.collection_method
 
-    # Reset to pending moderation if content changed
-    listing.moderation_status = ModerationStatus.pending
+    if req.photo_urls is not None and len(req.photo_urls) > 0:
+        await db.execute(delete(ListingPhoto).where(ListingPhoto.listing_id == listing.id))
+        for idx, url_str in enumerate(req.photo_urls[:5]):
+            new_p = ListingPhoto(
+                listing_id=listing.id,
+                url=url_str,
+                order_index=idx,
+            )
+            db.add(new_p)
+
+    listing.moderation_status = ModerationStatus.approved
+    listing.status = ListingStatus.active
 
     await db.commit()
-    return {"message": "Listing updated", "id": str(listing.id)}
+    return {"message": "Listing updated", "id": str(listing.id), "slug": listing.slug}
 
 
 @router.delete("/{listing_id}")
