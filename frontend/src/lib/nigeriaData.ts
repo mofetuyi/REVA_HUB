@@ -47,7 +47,7 @@ export const PRODUCT_GROUPS: Record<string, ProductGroupConfig> = {
     badgeText: 'Reva Material',
     tagline: 'Circular products, organic byproducts, agro-waste, recovered plastics, cardboard & industrial feedstocks',
     description: 'Clean, sorted circular materials, organic biomass, and recovered feedstocks ready for processing, manufacturing & bio-energy across Lagos.',
-    categoryValues: ['circular_products', 'organic_products', 'plastic', 'fabric', 'leather', 'wood', 'cardboard', 'clothes', 'other'],
+    categoryValues: ['circular_products', 'organic_products'],
   },
   raw_materials: {
     id: 'raw_materials',
@@ -57,7 +57,7 @@ export const PRODUCT_GROUPS: Record<string, ProductGroupConfig> = {
     badgeText: 'Reva Material',
     tagline: 'Circular products, organic byproducts, agro-waste, recovered plastics, cardboard & industrial feedstocks',
     description: 'Clean, sorted circular materials, organic biomass, and recovered feedstocks ready for processing, manufacturing & bio-energy across Lagos.',
-    categoryValues: ['circular_products', 'organic_products', 'plastic', 'fabric', 'leather', 'wood', 'cardboard', 'clothes', 'other'],
+    categoryValues: ['circular_products', 'organic_products'],
   },
   upcycled_products: {
     id: 'upcycled_products',
@@ -67,20 +67,13 @@ export const PRODUCT_GROUPS: Record<string, ProductGroupConfig> = {
     badgeText: 'Upcycled Product',
     tagline: 'Artisan handcrafts, refurbished furniture, circular fashion & finished lifestyle wares',
     description: 'High-quality finished goods, refurbished hardwood furniture, handcrafted designer bags, and circular home goods made from 100% recovered materials.',
-    categoryValues: ['furniture', 'fashion', 'crafts', 'wood', 'leather', 'clothes'],
+    categoryValues: ['furniture', 'fashion', 'crafts', 'plastic', 'wood', 'cardboard', 'clothes', 'fabric', 'leather', 'other'],
   },
 }
 
 export const CIRCULAR_MATERIAL_CATEGORIES = [
   { value: 'circular_products', label: 'Circular Products', icon: '🌾', group: 'circular_materials' },
   { value: 'organic_products', label: 'Organic Products', icon: '🌱', group: 'circular_materials' },
-  { value: 'plastic', label: 'Recovered Plastics', icon: '🍾', group: 'circular_materials' },
-  { value: 'wood', label: 'Reclaimed Timber & Pallets', icon: '🪵', group: 'circular_materials' },
-  { value: 'cardboard', label: 'Cardboard Bales', icon: '📦', group: 'circular_materials' },
-  { value: 'clothes', label: 'Denim & Garments', icon: '👖', group: 'circular_materials' },
-  { value: 'fabric', label: 'Textile Scraps', icon: '🧵', group: 'circular_materials' },
-  { value: 'leather', label: 'Leather Offcuts', icon: '👞', group: 'circular_materials' },
-  { value: 'other', label: 'Other Circular Materials', icon: '♻️', group: 'circular_materials' },
 ] as const
 
 export const RAW_MATERIAL_CATEGORIES = CIRCULAR_MATERIAL_CATEGORIES
@@ -89,6 +82,13 @@ export const UPCYCLED_PRODUCT_CATEGORIES = [
   { value: 'furniture', label: 'Upcycled Furniture & Stools', icon: '🪑', group: 'upcycled_products' },
   { value: 'fashion', label: 'Circular Fashion & Bags', icon: '👜', group: 'upcycled_products' },
   { value: 'crafts', label: 'Handmade Crafts & Stationery', icon: '📓', group: 'upcycled_products' },
+  { value: 'plastic', label: 'Recovered Plastics', icon: '🍾', group: 'upcycled_products' },
+  { value: 'wood', label: 'Reclaimed Timber & Pallets', icon: '🪵', group: 'upcycled_products' },
+  { value: 'cardboard', label: 'Cardboard Bales', icon: '📦', group: 'upcycled_products' },
+  { value: 'clothes', label: 'Denim & Garments', icon: '👖', group: 'upcycled_products' },
+  { value: 'fabric', label: 'Textile Scraps', icon: '🧵', group: 'upcycled_products' },
+  { value: 'leather', label: 'Leather Offcuts', icon: '👞', group: 'upcycled_products' },
+  { value: 'other', label: 'Other Upcycled Items', icon: '♻️', group: 'upcycled_products' },
 ] as const
 
 export const MATERIAL_CATEGORIES = [

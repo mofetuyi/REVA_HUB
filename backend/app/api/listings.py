@@ -107,7 +107,7 @@ def _listing_to_dict(listing: Listing, include_seller: bool = False) -> dict:
         "condition": _val(listing.condition),
         "condition_notes": listing.condition_notes,
         "price_ngn": float(listing.price_ngn) if listing.price_ngn is not None else 0.0,
-        "product_group": getattr(listing, "product_group", None) or ("upcycled_products" if _val(listing.category) in ["furniture", "fashion", "crafts"] or any(kw in (listing.title or "").lower() for kw in ["furniture", "journal", "tote bag", "refurbished", "bag", "stool", "chair"]) else "circular_materials"),
+        "product_group": getattr(listing, "product_group", None) or ("circular_materials" if _val(listing.category) in ["circular_products", "organic_products"] else "upcycled_products"),
         "state": getattr(listing, "state", "Lagos") or "Lagos",
         "lga": listing.lga or "Lagos",
         "pickup_address": listing.pickup_address,
@@ -227,10 +227,10 @@ async def create_listing(
 
     group_val = req.product_group
     if not group_val or group_val not in ["circular_materials", "raw_materials", "upcycled_products"]:
-        if _val(req.category) in ["furniture", "fashion", "crafts"] or any(kw in req.title.lower() for kw in ["furniture", "journal", "tote bag", "refurbished", "bag", "stool", "chair", "desk"]):
-            group_val = "upcycled_products"
-        else:
+        if _val(req.category) in ["circular_products", "organic_products"]:
             group_val = "circular_materials"
+        else:
+            group_val = "upcycled_products"
 
     listing = Listing(
         seller_id=current_user.id,

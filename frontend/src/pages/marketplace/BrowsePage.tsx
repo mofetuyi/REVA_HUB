@@ -207,14 +207,14 @@ export default function BrowsePage() {
           <div className="text-xs font-medium text-dark-500 px-1">
             {group === 'circular_materials' || group === 'raw_materials' ? (
               <span className="text-brandGreen-900">
-                🌿 <strong>Circular Products</strong>: Organic biomass, rice husk, palm shells, PET flakes & feedstocks
+                🌿 <strong>Circular Products</strong>: Plantain peels, coconut shells, rice husk & palm kernel shells
               </span>
             ) : group === 'upcycled_products' ? (
               <span className="text-gold-700">
                 ✨ <strong>Upcycled Products Hub</strong>: Restored furniture, student desks, circular denim fashion & lifestyle wares
               </span>
             ) : (
-              <span>Trading recovered raw materials and artisan upcycled products in Lagos</span>
+              <span>Trading recovered materials and artisan upcycled products in Lagos</span>
             )}
           </div>
         </div>
@@ -229,7 +229,7 @@ export default function BrowsePage() {
                 : 'bg-white border-cream-200 text-dark-700 hover:border-gold-400'
             }`}
           >
-            All {group === 'circular_materials' || group === 'raw_materials' ? 'Circular Materials' : group === 'upcycled_products' ? 'Upcycled Goods' : 'Categories'}
+            All {group === 'circular_materials' || group === 'raw_materials' ? 'Circular Products' : group === 'upcycled_products' ? 'Upcycled Goods' : 'Categories'}
           </button>
           {(group === 'circular_materials' || group === 'raw_materials'
             ? RAW_MATERIAL_CATEGORIES

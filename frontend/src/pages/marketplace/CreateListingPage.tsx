@@ -162,9 +162,9 @@ export default function CreateListingPage() {
               }`}
             >
               <div className="font-bold text-dark-900 text-sm flex items-center gap-1.5">
-                <span>🌿</span> Reva Hub
+                <span>🌿</span> Circular Products Hub
               </div>
-              <p className="text-xs text-dark-500 mt-1">Organic byproducts, rice husk, palm shells, plastics & recovered feedstocks</p>
+              <p className="text-xs text-dark-500 mt-1">Agricultural biomass, rice husk, palm shells, plantain peels & coconut coir</p>
             </button>
             <button
               type="button"
@@ -181,7 +181,7 @@ export default function CreateListingPage() {
               <div className="font-bold text-dark-900 text-sm flex items-center gap-1.5">
                 <span>✨</span> Upcycled Products Hub
               </div>
-              <p className="text-xs text-dark-500 mt-1">Refurbished furniture, student desks, circular fashion & handmade wares</p>
+              <p className="text-xs text-dark-500 mt-1">Refurbished furniture, student desks, circular fashion, plastic & reclaimed timber</p>
             </button>
           </div>
         </div>
