@@ -14,7 +14,7 @@ import { GoogleAuthButton } from '../../components/auth/GoogleAuthButton'
 
 const step1Schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().regex(/^\d{10}$/, 'Enter 10 digits after +234 (e.g. 8012345678)'),
+  phone: z.string().regex(/^\d{10}$/, 'Enter 10 digits after 234 (e.g. 8012345678)'),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string(),
@@ -47,7 +47,7 @@ export default function SignupPage() {
 
   const signupMutation = useMutation({
     mutationFn: (data: Step1Data & Step2Data) => {
-      const phone = `+234${data.phone.replace(/^0/, '')}`
+      const phone = `234${data.phone.replace(/^0/, '')}`
       return api.post('/auth/signup', {
         phone,
         name: data.name,
@@ -67,7 +67,7 @@ export default function SignupPage() {
       }
       const userObj = res?.data?.user || {
         id: res?.data?.user_id || 'usr_' + Date.now().toString(36),
-        phone: `+234${data.phone.replace(/^0/, '')}`,
+        phone: `234${data.phone.replace(/^0/, '')}`,
         name: data.name,
         email: data.email || undefined,
         account_type: data.account_type,
@@ -92,7 +92,7 @@ export default function SignupPage() {
     onError: (err: any, data) => {
       const is404OrNetwork = err?.response?.status === 404 || err?.code === 'ERR_NETWORK' || !err?.response
       if (is404OrNetwork) {
-        const phone = `+234${data.phone.replace(/^0/, '')}`
+        const phone = `234${data.phone.replace(/^0/, '')}`
         const demoUser = {
           id: 'usr_' + Date.now().toString(36),
           phone,
@@ -172,7 +172,7 @@ export default function SignupPage() {
               Phone number <span className="text-red-500">*</span>
             </label>
             <div className="flex">
-              <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium whitespace-nowrap">+234</span>
+              <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium whitespace-nowrap">234</span>
               <input
                 type="tel"
                 placeholder="8012345678"

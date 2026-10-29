@@ -56,14 +56,20 @@ class SignupRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
+        # Accept phone without '+' prefix (e.g. "2348012345678") and normalize
+        cleaned = v.strip()
+        if cleaned.startswith("234") and not cleaned.startswith("+"):
+            cleaned = "+" + cleaned
+        elif cleaned.startswith("0") and len(cleaned) == 11:
+            cleaned = "+234" + cleaned[1:]
         try:
-            parsed = phonenumbers.parse(v, None)
+            parsed = phonenumbers.parse(cleaned, "NG")
             if not phonenumbers.is_valid_number(parsed):
                 raise ValueError("Invalid phone number")
             if parsed.country_code != 234:
-                raise ValueError("Phone number must be a Nigerian number (+234…)")
+                raise ValueError("Phone number must be a Nigerian number (234…)")
         except phonenumbers.NumberParseException:
-            raise ValueError("Phone number must be in E.164 format (e.g. +2348012345678)")
+            raise ValueError("Phone number must be in format 2348012345678")
         return phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
 
     @field_validator("lga")

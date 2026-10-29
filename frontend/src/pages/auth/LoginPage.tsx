@@ -12,7 +12,7 @@ import { Button } from '../../components/ui/Button'
 import { GoogleAuthButton } from '../../components/auth/GoogleAuthButton'
 
 const schema = z.object({
-  phone: z.string().regex(/^\d{10}$/, 'Enter 10 digits after +234'),
+  phone: z.string().regex(/^\d{10}$/, 'Enter 10 digits after 234'),
   password: z.string().min(1, 'Password is required'),
 })
 
@@ -28,7 +28,7 @@ export default function LoginPage() {
 
   const loginMutation = useMutation({
     mutationFn: (data: FormData) =>
-      api.post('/auth/login', { phone: `+234${data.phone.replace(/^0/, '')}`, password: data.password }),
+      api.post('/auth/login', { phone: `234${data.phone.replace(/^0/, '')}`, password: data.password }),
     onSuccess: async (res) => {
       const meRes = await api.get('/auth/me', {
         headers: { Authorization: `Bearer ${res.data.access_token}` },
@@ -41,7 +41,7 @@ export default function LoginPage() {
       const is404OrNetwork = err?.response?.status === 404 || err?.code === 'ERR_NETWORK' || !err?.response
       if (is404OrNetwork) {
         // Fallback demo login when backend is offline or on static host
-        const phone = `+234${data.phone.replace(/^0/, '')}`
+        const phone = `234${data.phone.replace(/^0/, '')}`
         const demoUser = {
           id: 'usr_demo_user',
           phone,
@@ -82,7 +82,7 @@ export default function LoginPage() {
         <div>
           <label className="block text-sm font-medium text-dark-800 mb-1">Phone number</label>
           <div className="flex">
-            <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium">+234</span>
+            <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium">234</span>
             <input
               type="tel"
               placeholder="8012345678"
