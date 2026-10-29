@@ -43,6 +43,19 @@ export default function VerifyOTPPage() {
     },
   })
 
+  const [whatsappLink, setWhatsappLink] = React.useState<string | null>(null)
+
+  const whatsappMutation = useMutation({
+    mutationFn: () => api.post('/auth/whatsapp/send-otp', { phone }),
+    onSuccess: (res) => {
+      toast.success('💬 WhatsApp verification code sent!')
+      if (res.data?.whatsapp_link) {
+        setWhatsappLink(res.data.whatsapp_link)
+      }
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
   const resendMutation = useMutation({
     mutationFn: () => api.post('/auth/resend-otp', { phone }),
     onSuccess: () => {
@@ -119,6 +132,39 @@ export default function VerifyOTPPage() {
           <div className="w-6 h-6 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
+
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-center space-y-2.5">
+        <div className="flex items-center justify-center gap-2 text-emerald-900 font-bold text-xs uppercase tracking-wider">
+          <span>💬</span>
+          <span>WhatsApp Verification</span>
+        </div>
+        <p className="text-xs text-emerald-800">
+          Prefer receiving your 6-digit code on WhatsApp?
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => whatsappMutation.mutate()}
+            loading={whatsappMutation.isPending}
+            className="border-emerald-300 bg-white hover:bg-emerald-100/60 text-emerald-900 font-semibold text-xs"
+          >
+            <span>💬 Send Code to WhatsApp</span>
+          </Button>
+          {whatsappLink && (
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+            >
+              <span>Open in WhatsApp</span>
+              <span>↗</span>
+            </a>
+          )}
+        </div>
+      </div>
 
       <div className="text-center">
         {resendCooldown > 0 ? (

@@ -17,6 +17,7 @@ from app.core.security import (
 )
 from app.models.user import User, AccountType, UserMode, KYCStatus
 from app.services.sms import send_otp, verify_otp_code
+from app.services.whatsapp import send_whatsapp_otp, verify_whatsapp_otp_code, normalize_phone_number
 from app.services.email import send_welcome_email
 from app.core.config import settings
 
@@ -689,5 +690,107 @@ async def activate_premium_one_month(
             "is_premium": current_user.is_premium,
             "premium_expires_at": current_user.premium_expires_at.isoformat(),
         }
+    }
+
+
+# ── WhatsApp Verification Endpoints ──────────────────────────────────────────
+
+class WhatsAppSendOTPRequest(BaseModel):
+    phone: str
+
+
+class WhatsAppVerifyOTPRequest(BaseModel):
+    phone: str
+    otp: str
+
+
+@router.post("/whatsapp/send-otp")
+async def whatsapp_send_otp(
+    req: WhatsAppSendOTPRequest,
+    redis = Depends(get_redis),
+):
+    """Generate 6-digit OTP and send via WhatsApp with direct click-to-verify link."""
+    clean_phone = normalize_phone_number(req.phone)
+    if not clean_phone or len(clean_phone) < 10:
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
+
+    throttle_key = f"whatsapp_otp_throttle:{clean_phone}"
+    cooldown = await redis.get(throttle_key)
+    if cooldown:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait 30 seconds before requesting another WhatsApp verification code."
+        )
+
+    await redis.setex(throttle_key, 30, "1")
+    success, otp, msg, direct_link = await send_whatsapp_otp(clean_phone, redis)
+    return {
+        "success": True,
+        "message": msg,
+        "phone": clean_phone,
+        "whatsapp_link": direct_link,
+    }
+
+
+@router.post("/whatsapp/verify-otp")
+async def whatsapp_verify_otp(
+    req: WhatsAppVerifyOTPRequest,
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis),
+):
+    """Verify WhatsApp OTP code and mark account as verified."""
+    clean_phone = normalize_phone_number(req.phone)
+    valid, err_msg = await verify_whatsapp_otp_code(clean_phone, req.otp.strip(), redis)
+    if not valid:
+        valid2, _ = await verify_whatsapp_otp_code(req.phone.strip(), req.otp.strip(), redis)
+        if not valid2:
+            raise HTTPException(status_code=400, detail=err_msg or "Invalid or expired WhatsApp verification code")
+
+    local_phone = "0" + clean_phone[3:] if clean_phone.startswith("234") else clean_phone
+    result = await db.execute(
+        select(User).where(
+            (User.phone == clean_phone) | (User.phone == req.phone.strip()) | (User.phone == local_phone)
+        )
+    )
+    user = result.scalar_one_or_none()
+
+    if user:
+        user.is_phone_verified = True
+        user.kyc_status = KYCStatus.verified
+        user.kyc_verified_at = datetime.now(timezone.utc)
+        user.last_login_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(user)
+
+        access_token = create_access_token(str(user.id))
+        refresh_token = create_refresh_token(str(user.id))
+        try:
+            await store_refresh_token(str(user.id), refresh_token, redis)
+        except Exception as re_err:
+            logger.warning("Could not store refresh token: %s", re_err)
+
+        return {
+            "success": True,
+            "message": "Phone number successfully verified via WhatsApp! 🌿",
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "user": {
+                "id": str(user.id),
+                "phone": user.phone,
+                "name": user.name,
+                "email": user.email,
+                "reva_id": user.reva_id,
+                "is_phone_verified": True,
+                "kyc_status": "verified",
+                "is_premium": bool(user.is_premium),
+            }
+        }
+
+    return {
+        "success": True,
+        "message": "WhatsApp code verified successfully! You can now proceed.",
+        "verified": True,
+        "phone": clean_phone,
     }
 

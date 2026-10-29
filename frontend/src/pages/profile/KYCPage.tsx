@@ -1,18 +1,42 @@
 import React from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
-import { ShieldCheck, ShieldAlert, Clock, ArrowRight, ExternalLink } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ShieldCheck, ShieldAlert, Clock, ArrowRight, ExternalLink, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { Button } from '../../components/ui/Button'
 import { LoadingPage } from '../../components/ui/index'
 
 export default function KYCPage() {
+  const queryClient = useQueryClient()
+  const [waCode, setWaCode] = React.useState('')
+  const [waSent, setWaSent] = React.useState(false)
+  const [waLink, setWaLink] = React.useState<string | null>(null)
+
   const { data: profile, isLoading } = useQuery({
     queryKey: ['myProfile'],
     queryFn: async () => {
       const res = await api.get('/auth/me')
       return res.data
     },
+  })
+
+  const sendWaMutation = useMutation({
+    mutationFn: () => api.post('/auth/whatsapp/send-otp', { phone: profile?.phone }),
+    onSuccess: (res) => {
+      setWaSent(true)
+      if (res.data?.whatsapp_link) setWaLink(res.data.whatsapp_link)
+      toast.success('💬 WhatsApp verification code sent to your phone!')
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const verifyWaMutation = useMutation({
+    mutationFn: () => api.post('/auth/whatsapp/verify-otp', { phone: profile?.phone, otp: waCode }),
+    onSuccess: (res) => {
+      toast.success('🎉 WhatsApp identity verified successfully!')
+      queryClient.invalidateQueries({ queryKey: ['myProfile'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
   })
 
   const startKycMutation = useMutation({
@@ -81,15 +105,84 @@ export default function KYCPage() {
         )}
 
         {status !== 'verified' && (
-          <div className="pt-2">
-            <Button
-              onClick={() => startKycMutation.mutate()}
-              isLoading={startKycMutation.isPending}
-              className="w-full sm:w-auto"
-            >
-              <span>{status === 'in_progress' ? 'Resume Verification' : 'Start Identity Verification'}</span>
-              <ArrowRight className="w-4 h-4 ml-1.5" />
-            </Button>
+          <div className="space-y-4 pt-2">
+            {/* WhatsApp Phone & Identity Verification */}
+            <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 space-y-3">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">💬</span>
+                <div>
+                  <h3 className="font-bold text-sm text-emerald-950">WhatsApp Phone & Identity Verification</h3>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Fast-track your seller trust badge by verifying your phone line directly via WhatsApp OTP.
+                  </p>
+                </div>
+              </div>
+
+              {!waSent ? (
+                <div className="pt-1">
+                  <Button
+                    type="button"
+                    onClick={() => sendWaMutation.mutate()}
+                    isLoading={sendWaMutation.isPending}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                  >
+                    <span>💬 Send Code to my WhatsApp ({profile?.phone || 'Your Phone'})</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={waCode}
+                      onChange={(e) => setWaCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Enter 6-digit WhatsApp code"
+                      className="px-3 py-2 bg-white border border-emerald-300 rounded-xl text-sm font-mono tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => verifyWaMutation.mutate()}
+                      isLoading={verifyWaMutation.isPending}
+                      disabled={waCode.length < 6}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                    >
+                      Verify Code
+                    </Button>
+                  </div>
+                  {waLink && (
+                    <div className="pt-1">
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-emerald-700 hover:underline font-medium inline-flex items-center gap-1"
+                      >
+                        Didn't receive code? Click here to open WhatsApp directly ↗
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px bg-cream-200 flex-1" />
+              <span className="text-[11px] text-dark-400 uppercase font-semibold">Or use Document KYC</span>
+              <div className="h-px bg-cream-200 flex-1" />
+            </div>
+
+            <div>
+              <Button
+                variant="secondary"
+                onClick={() => startKycMutation.mutate()}
+                isLoading={startKycMutation.isPending}
+                className="w-full sm:w-auto text-xs"
+              >
+                <span>{status === 'in_progress' ? 'Resume Document Verification' : 'Government ID Document Verification'}</span>
+                <ArrowRight className="w-4 h-4 ml-1.5" />
+              </Button>
+            </div>
           </div>
         )}
       </div>

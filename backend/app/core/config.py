@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     SMS_API_KEY: Optional[str] = None
     SMS_SENDER_ID: str = "Reva"
 
+    # ── WhatsApp Verification ─────────────────────────────────────────────────
+    WHATSAPP_API_KEY: Optional[str] = "sk_hXOvkP3W3U-msS9u7st6jA"
+    WHATSAPP_PROVIDER: str = "auto"
+    WHATSAPP_SENDER_PHONE: str = "2347076630396"
+    WHATSAPP_GATEWAY_URL: Optional[str] = None
+
     # ── KYC ───────────────────────────────────────────────────────────────────
     KYC_PROVIDER_URL: Optional[str] = None
     KYC_API_KEY: Optional[str] = None
@@ -154,6 +160,10 @@ class Settings(BaseSettings):
     @property
     def sms_configured(self) -> bool:
         return bool(self.SMS_API_KEY)
+
+    @property
+    def whatsapp_configured(self) -> bool:
+        return bool(self.WHATSAPP_API_KEY)
 
     @property
     def payment_configured(self) -> bool:
