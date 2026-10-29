@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Sparkles, Send, User, RefreshCw, Crown, Lock, ArrowRight, Image as ImageIcon, X, CheckCircle2 } from 'lucide-react'
+import { Sparkles, Send, User, RefreshCw, Crown, Lock, ArrowRight, Image as ImageIcon, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore, isUserPremium } from '../../store/authStore'
 import { Button } from '../../components/ui/Button'
 
 interface ChatMessage {
@@ -22,14 +22,13 @@ const QUICK_PROMPTS = [
 ]
 
 export default function AIAssistantPage() {
-  const { user, isAuthenticated, activatePremium } = useAuthStore()
-  const [activating, setActivating] = useState(false)
+  const { user, isAuthenticated } = useAuthStore()
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Hello! I'm **Revi**, Reva Hub's circular economy and marketplace assistant in Lagos, Nigeria. 🌿\n\nAsk me how to identify, price, or transform recovered materials (plastics, fabric scraps, wood, sawdust, metals, agro-waste), or ask how Paystack Escrow, automated bank payouts, and Lagos 3PL delivery work!\n\n💡 *Tip: Premium members can also upload photos of waste materials for instant visual identification and price estimation!*",
+        "Hello! I'm **Revi**, Reva Hub's circular economy and marketplace assistant in Lagos, Nigeria. 🌿\n\nAsk me how to identify, price, or transform recovered materials (plastics, fabric scraps, wood, sawdust, metals, agro-waste), or ask how Paystack Escrow, automated bank payouts, and Lagos 3PL delivery work!\n\n💡 *Tip: Active Reva Premium members can also upload photos of waste materials for instant visual identification and price estimation!*",
     },
   ])
   const [input, setInput] = useState('')
@@ -38,7 +37,8 @@ export default function AIAssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const isPremium = Boolean(user?.is_premium || user?.is_admin)
+  // Strictly check active premium subscription. Free accounts (including non-subscribed admins) cannot chat.
+  const isPremium = isUserPremium(user)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -53,7 +53,7 @@ export default function AIAssistantPage() {
     if (!file) return
 
     if (!isPremium) {
-      toast.error('Only Premium accounts can upload images and chat with Revi AI.')
+      toast.error('Free accounts cannot use Revi the chatbot. Upgrade to Premium to upload photos and chat!')
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
@@ -81,7 +81,7 @@ export default function AIAssistantPage() {
 
   const sendMessage = async (textToSend?: string) => {
     if (!isPremium) {
-      toast.error('Free accounts are restricted from sending messages. Upgrade to Premium to chat with Revi!')
+      toast.error('Free accounts cannot use Revi the chatbot. Please subscribe to Premium!')
       return
     }
 
@@ -142,19 +142,6 @@ export default function AIAssistantPage() {
     }
   }
 
-  const handleActivatePremium = async () => {
-    setActivating(true)
-    try {
-      await api.post('/auth/premium/activate-month')
-      activatePremium(30)
-      toast.success('👑 Welcome to Reva Premium! Revi AI is now unlocked.')
-    } catch (err) {
-      toast.error(extractError(err))
-    } finally {
-      setActivating(false)
-    }
-  }
-
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault()
     sendMessage()
@@ -183,17 +170,21 @@ export default function AIAssistantPage() {
               <h1 className="font-display font-bold text-base text-dark-900">Revi — Reva Hub AI</h1>
               {isPremium ? (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold-400/20 text-gold-800 border border-gold-400/40 flex items-center gap-1">
-                  <Crown className="w-3 h-3 text-gold-600" />
+                  <Crown className="w-3 h-3 text-gold-600 fill-gold-600" />
                   Premium Active
                 </span>
               ) : (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
                   <Lock className="w-3 h-3 text-amber-700" />
-                  Premium Required to Chat
+                  Free Account — Chatbot Locked
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-dark-500">Lagos circular marketplace, material vision analysis, pricing & upcycling guide.</p>
+            <p className="text-[11px] text-dark-500">
+              {isPremium
+                ? 'Lagos circular marketplace, material vision analysis, pricing & upcycling guide.'
+                : 'Free accounts cannot use Revi the chatbot. Premium subscription required.'}
+            </p>
           </div>
         </div>
 
@@ -210,7 +201,7 @@ export default function AIAssistantPage() {
         )}
       </div>
 
-      {/* Messages Feed (Visible to all users) */}
+      {/* Messages Feed */}
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 bg-[#FAF8F5]">
         {messages.map((m) => (
           <div
@@ -265,7 +256,7 @@ export default function AIAssistantPage() {
               type="button"
               onClick={() => {
                 if (!isPremium) {
-                  toast.error('👑 Upgrade to Premium to send messages to Revi AI!')
+                  toast.error('Free accounts cannot use Revi. Upgrade to Premium to chat!')
                 } else {
                   sendMessage(p)
                 }
@@ -303,18 +294,18 @@ export default function AIAssistantPage() {
         </div>
       )}
 
-      {/* Input Form or Free Account Restricted Notice */}
+      {/* Free Account Locked Bar OR Active Premium Input */}
       {!isPremium ? (
         <div className="p-4 bg-gradient-to-r from-cream-100 via-gold-50/50 to-cream-50 border-t border-cream-200 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
                 <Lock className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-dark-900">Free Account: Chatbot is for Premium Users Only</p>
-                <p className="text-[11px] text-dark-500">
-                  Only premium accounts can send messages and upload waste material photos to Revi.
+                <p className="text-xs font-bold text-dark-900">Free Account — Revi Chatbot is Locked</p>
+                <p className="text-[11px] text-dark-600">
+                  Free accounts cannot use Revi the chatbot. An active Reva Premium subscription is required to send messages and upload waste material photos.
                 </p>
               </div>
             </div>
@@ -322,21 +313,20 @@ export default function AIAssistantPage() {
               <Link
                 to="/login"
                 state={{ from: '/ai' }}
-                className="py-2.5 px-5 bg-[#062E12] hover:bg-[#08421a] text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-2"
+                className="py-2.5 px-5 bg-[#062E12] hover:bg-[#08421a] text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-2 cursor-pointer"
               >
                 Sign In to Unlock Premium
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             ) : (
-              <button
-                type="button"
-                onClick={handleActivatePremium}
-                disabled={activating}
-                className="py-2.5 px-5 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 text-xs font-black rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer flex items-center gap-2"
+              <Link
+                to="/premium"
+                className="py-2.5 px-6 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 text-xs font-black rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer flex items-center gap-2"
               >
                 <Crown className="w-4 h-4 text-dark-900" />
-                {activating ? 'Activating Premium...' : '👑 Upgrade to Premium to Chat'}
-              </button>
+                <span>👑 Subscribe to Premium (Paystack)</span>
+                <ArrowRight className="w-3.5 h-3.5 text-dark-900" />
+              </Link>
             )}
           </div>
         </div>

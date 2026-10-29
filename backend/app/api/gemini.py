@@ -30,11 +30,23 @@ class ChatRequest(BaseModel):
     context_tutorial_slug: Optional[str] = None
 
 
+from datetime import datetime, timezone
+
+def is_user_premium_active(user: User) -> bool:
+    """Strictly checks whether the user has an active, unexpired Reva Premium subscription."""
+    if not getattr(user, "is_premium", False):
+        return False
+    expires_at = getattr(user, "premium_expires_at", None)
+    if expires_at and expires_at < datetime.now(timezone.utc):
+        return False
+    return True
+
+
 async def _handle_chat(req: ChatRequest, db: AsyncSession, current_user: User):
-    if not (getattr(current_user, "is_premium", False) or getattr(current_user, "is_admin", False)):
+    if not is_user_premium_active(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Revi AI Assistant is reserved exclusively for Reva Premium members. Free accounts cannot send messages. Please upgrade your account to Premium.",
+            detail="Free accounts cannot use Revi the chatbot. Revi AI is reserved exclusively for active Reva Premium subscribers. Please subscribe to Premium at /premium.",
         )
 
     user_text = (req.message or req.prompt or "").strip()

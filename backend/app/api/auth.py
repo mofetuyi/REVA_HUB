@@ -578,10 +578,15 @@ async def get_me(
         await db.commit()
         await db.refresh(current_user)
 
+    now = datetime.now(timezone.utc)
+    is_premium_active = bool(current_user.is_premium)
+    if current_user.premium_expires_at and current_user.premium_expires_at < now:
+        is_premium_active = False
+
     return {
         "id": str(current_user.id),
         "reva_id": current_user.reva_id,
-        "is_premium": bool(current_user.is_premium),
+        "is_premium": is_premium_active,
         "premium_activated_at": current_user.premium_activated_at.isoformat() if current_user.premium_activated_at else None,
         "premium_expires_at": current_user.premium_expires_at.isoformat() if current_user.premium_expires_at else None,
         "phone": current_user.phone,
@@ -752,7 +757,12 @@ async def activate_premium_one_month(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Activate Premium for 1 month (30 days) on the current user's account."""
+    """Admin-only manual activation or payment confirmation."""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Direct premium activation is reserved for confirmed Paystack payments. Please subscribe at /premium.",
+        )
     now = datetime.now(timezone.utc)
     base = current_user.premium_expires_at if (current_user.premium_expires_at and current_user.premium_expires_at > now) else now
     current_user.is_premium = True

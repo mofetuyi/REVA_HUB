@@ -82,3 +82,12 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 )
+
+export const isUserPremium = (user: User | null | undefined): boolean => {
+  if (!user || !user.is_premium) return false
+  if (user.premium_expires_at) {
+    const expiry = new Date(user.premium_expires_at).getTime()
+    if (expiry < Date.now()) return false
+  }
+  return true
+}

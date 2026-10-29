@@ -3,7 +3,7 @@ import { MessageSquare, X, Send, Sparkles, RefreshCw, Crown, Lock, Image as Imag
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
-import { useAuthStore } from '../../store/authStore'
+import { useAuthStore, isUserPremium } from '../../store/authStore'
 
 interface ChatMessage {
   id: string
@@ -20,15 +20,14 @@ const QUICK_PROMPTS = [
 ]
 
 export default function ReviChatWidget() {
-  const { user, isAuthenticated, activatePremium } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
-  const [activating, setActivating] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'revi-welcome',
       role: 'assistant',
       content:
-        "Hi! I'm **Revi**, your circular economy AI assistant. 🌿\n\nAsk me about buying or selling recovered materials, Lagos courier delivery, or safe Paystack escrow!\n\n💡 *Tip: You can now also upload photos of materials for instant visual identification and price estimation!*",
+        "Hi! I'm **Revi**, your circular economy AI assistant. 🌿\n\nAsk me about buying or selling recovered materials, Lagos courier delivery, or safe Paystack escrow!\n\n💡 *Tip: Reva Premium members can also upload photos of materials for instant visual identification and price estimation!*",
     },
   ])
   const [input, setInput] = useState('')
@@ -37,7 +36,8 @@ export default function ReviChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const isPremium = Boolean(user?.is_premium || user?.is_admin)
+  // Strictly check active premium subscription. Free accounts (including non-subscribed admins) cannot chat.
+  const isPremium = isUserPremium(user)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -54,7 +54,7 @@ export default function ReviChatWidget() {
     if (!file) return
 
     if (!isPremium) {
-      toast.error('Only Premium accounts can upload images and chat with Revi AI.')
+      toast.error('Free accounts cannot use Revi the chatbot. Upgrade to Premium to upload photos and chat!')
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
@@ -82,7 +82,7 @@ export default function ReviChatWidget() {
 
   const handleSend = async (textToSend?: string) => {
     if (!isPremium) {
-      toast.error('Free accounts are restricted from sending messages. Upgrade to Premium to chat with Revi!')
+      toast.error('Free accounts cannot use Revi the chatbot. Please subscribe to Premium!')
       return
     }
 
@@ -144,19 +144,6 @@ export default function ReviChatWidget() {
     }
   }
 
-  const handleActivatePremium = async () => {
-    setActivating(true)
-    try {
-      await api.post('/auth/premium/activate-month')
-      activatePremium(30)
-      toast.success('👑 Welcome to Reva Premium! Revi AI is now fully unlocked.')
-    } catch (err) {
-      toast.error(extractError(err))
-    } finally {
-      setActivating(false)
-    }
-  }
-
   const resetChat = () => {
     setMessages([
       {
@@ -168,81 +155,90 @@ export default function ReviChatWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
+    <div className="fixed bottom-6 right-6 z-50">
       {/* Floating Toggle Button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-2.5 px-4 py-3 bg-[#062E12] hover:bg-[#08421a] text-white rounded-full shadow-2xl border-2 border-gold-400 hover:scale-105 active:scale-95 transition-all duration-200 group cursor-pointer"
-          aria-label="Chat with Revi AI"
+          className="group flex items-center gap-2.5 px-4 py-3 bg-[#062E12] hover:bg-[#08421a] text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 border border-gold-500/40 cursor-pointer active:scale-95"
+          aria-label="Open Revi AI Chat"
         >
           <div className="relative">
             <span className="text-xl">🌿</span>
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-400 rounded-full border border-dark-900 animate-pulse" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-gold-400 rounded-full animate-ping" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-gold-400 rounded-full" />
           </div>
-          <div className="text-left">
-            <div className="flex items-center gap-1">
-              <span className="block text-xs font-black tracking-wide text-white group-hover:text-gold-300">
-                Chat with Revi
-              </span>
-              <span className="text-[10px] font-bold px-1 rounded bg-gold-400/20 text-gold-300 border border-gold-400/40">
-                👑 AI
-              </span>
+          <div className="text-left hidden sm:block">
+            <div className="text-xs font-bold flex items-center gap-1 text-gold-300">
+              Ask Revi AI
+              {isPremium ? (
+                <Crown className="w-3 h-3 text-gold-400 fill-gold-400" />
+              ) : (
+                <Lock className="w-3 h-3 text-amber-300" />
+              )}
             </div>
-            <span className="block text-[10px] text-gold-300/80 font-medium leading-none mt-0.5">
-              Circular Economy Guide
-            </span>
+            <div className="text-[10px] text-cream-200">
+              {isPremium ? 'Circular Assistant Active' : 'Premium Only'}
+            </div>
           </div>
         </button>
       )}
 
-      {/* Floating Chat Window */}
+      {/* Chat Window */}
       {isOpen && (
-        <div className="w-[92vw] sm:w-[400px] h-[550px] max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-cream-300 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-[360px] sm:w-[400px] h-[550px] max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-cream-200 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
           {/* Header */}
-          <div className="bg-[#062E12] text-white p-3.5 px-4 flex items-center justify-between border-b border-gold-500/30">
+          <div className="bg-[#062E12] text-white p-4 flex items-center justify-between border-b border-gold-500/30">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-dark-900/40 border border-gold-400 flex items-center justify-center text-sm">
+              <div className="w-9 h-9 rounded-2xl bg-gold-500/20 border border-gold-500/40 flex items-center justify-center text-lg">
                 🌿
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="font-display font-bold text-sm text-white">Revi AI</h3>
+                  <h3 className="font-display font-bold text-sm text-white">Revi</h3>
+                  <span className="text-[10px] bg-gold-500/20 text-gold-300 px-1.5 py-0.5 rounded-full border border-gold-400/40 font-semibold">
+                    AI
+                  </span>
                   {isPremium ? (
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-gold-400/20 text-gold-300 border border-gold-400/40 flex items-center gap-0.5">
-                      <Crown className="w-2.5 h-2.5" /> Premium Active
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-full border border-emerald-400/40 font-semibold flex items-center gap-0.5">
+                      <Crown className="w-2.5 h-2.5 text-gold-400 fill-gold-400" />
+                      Premium
                     </span>
                   ) : (
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-0.5">
-                      <Lock className="w-2.5 h-2.5" /> Free Mode (View Only)
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full border border-amber-400/40 font-semibold flex items-center gap-0.5">
+                      <Lock className="w-2.5 h-2.5 text-amber-300" />
+                      Locked
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-gold-200/90">Multimodal Material & Price Vision</p>
+                <p className="text-[11px] text-cream-200">
+                  {isPremium ? 'Circular Economy & Vision Guide' : 'Free Account — Chatbot Locked'}
+                </p>
               </div>
             </div>
-
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={resetChat}
-                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                title="Reset Conversation"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
+              {isPremium && (
+                <button
+                  type="button"
+                  onClick={resetChat}
+                  className="p-1.5 text-cream-200 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Reset conversation"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                title="Close Revi"
+                className="p-1.5 text-cream-200 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                title="Close chat"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Messages Container */}
+          {/* Conversation Feed */}
           <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-[#FAF8F5] text-xs">
             {messages.map((m) => (
               <div
@@ -290,7 +286,7 @@ export default function ReviChatWidget() {
                   type="button"
                   onClick={() => {
                     if (!isPremium) {
-                      toast.error('👑 Upgrade to Premium to send messages to Revi AI!')
+                      toast.error('Free accounts cannot use Revi. Upgrade to Premium to chat!')
                     } else {
                       handleSend(p)
                     }
@@ -317,7 +313,7 @@ export default function ReviChatWidget() {
               <button
                 type="button"
                 onClick={removeSelectedImage}
-                className="p-1 text-gold-800 hover:text-red-600 rounded-full"
+                className="p-1 text-gold-800 hover:text-red-600 rounded-full cursor-pointer"
                 title="Remove image"
               >
                 <X className="w-3.5 h-3.5" />
@@ -325,40 +321,43 @@ export default function ReviChatWidget() {
             </div>
           )}
 
-          {/* Input Form or Premium Gate */}
+          {/* Free Account Locked Bar OR Active Premium Input */}
           {!isPremium ? (
-            /* Restricted Free Account Bar */
             <div className="p-3 bg-gradient-to-r from-cream-100 to-cream-50 border-t border-cream-200 space-y-2">
               <div className="flex items-center justify-between text-xs text-dark-700">
                 <div className="flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-amber-600" />
-                  <span className="font-bold text-dark-900">Sending is Premium Only</span>
+                  <span className="font-bold text-dark-900">Free Account — Chatbot Locked</span>
                 </div>
-                <span className="text-[10px] text-dark-500">Free accounts cannot send</span>
+                <span className="text-[10px] text-amber-800 bg-amber-100 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                  Premium Required
+                </span>
               </div>
+              <p className="text-[11px] text-dark-600 leading-snug">
+                Free accounts cannot use Revi the chatbot. Subscribe to Reva Premium to chat with Revi and upload material photos for instant valuation.
+              </p>
               {!isAuthenticated ? (
                 <Link
                   to="/login"
                   onClick={() => setIsOpen(false)}
-                  className="w-full py-2.5 px-3 bg-[#062E12] hover:bg-[#08421a] text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 px-3 bg-[#062E12] hover:bg-[#08421a] text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   Sign In to Access Premium
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleActivatePremium}
-                  disabled={activating}
+                <Link
+                  to="/premium"
+                  onClick={() => setIsOpen(false)}
                   className="w-full py-2.5 px-3 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 text-xs font-black rounded-xl shadow transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Crown className="w-3.5 h-3.5 text-dark-900" />
-                  {activating ? 'Unlocking Premium...' : '👑 Upgrade to Premium to Chat'}
-                </button>
+                  <span>👑 Upgrade to Premium on Paystack</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-dark-900" />
+                </Link>
               )}
             </div>
           ) : (
-            /* Active Premium Input Form */
             <form
               onSubmit={(e) => {
                 e.preventDefault()

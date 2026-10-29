@@ -1,12 +1,26 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Outlet, Link } from 'react-router-dom'
 import { Header } from './Header'
 import { Toaster } from 'react-hot-toast'
 import { RevaLogoIcon } from '../ui/RevaLogo'
 import { Lock } from 'lucide-react'
 import ReviChatWidget from '../ai/ReviChatWidget'
+import { useAuthStore } from '../../store/authStore'
+import { api } from '../../lib/api'
 
 export function Layout() {
+  const { isAuthenticated, accessToken, setUser } = useAuthStore()
+
+  useEffect(() => {
+    if (isAuthenticated && accessToken) {
+      api.get('/auth/me')
+        .then((res) => {
+          if (res.data) setUser(res.data)
+        })
+        .catch(() => {})
+    }
+  }, [isAuthenticated, accessToken, setUser])
+
   return (
     <div className="min-h-screen flex flex-col bg-cream-50">
       <Header />
