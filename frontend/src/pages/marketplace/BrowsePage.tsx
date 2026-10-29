@@ -184,7 +184,7 @@ export default function BrowsePage() {
                   : 'text-dark-700 hover:text-dark-900 hover:bg-white/70'
               }`}
             >
-              <span>🌿</span> Reva Hub
+              <span>🌿</span> Circular Products
             </button>
             <button
               onClick={() => {
@@ -207,7 +207,7 @@ export default function BrowsePage() {
           <div className="text-xs font-medium text-dark-500 px-1">
             {group === 'circular_materials' || group === 'raw_materials' ? (
               <span className="text-brandGreen-900">
-                🌿 <strong>Reva Hub</strong>: Circular products, organic biomass, rice husk, palm shells, PET flakes & feedstocks
+                🌿 <strong>Circular Products</strong>: Organic biomass, rice husk, palm shells, PET flakes & feedstocks
               </span>
             ) : group === 'upcycled_products' ? (
               <span className="text-gold-700">
