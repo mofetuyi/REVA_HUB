@@ -1,6 +1,6 @@
-"""WhatsApp Verification & Messaging Service for Reva Hub.
+"""WhatsApp Verification & Messaging Service for Reva Hub (powered by WSAPI).
 
-Dispatches 6-digit OTP verification codes via WhatsApp Business API
+Dispatches 6-digit OTP verification codes via wsapi.chat API
 and generates click-to-verify WhatsApp direct links.
 """
 
@@ -29,7 +29,7 @@ async def send_whatsapp_otp(
     phone: str,
     redis_client,
 ) -> Tuple[bool, str, str, str]:
-    """Generate a 6-digit OTP, store in Redis, and dispatch via WhatsApp API.
+    """Generate a 6-digit OTP, store in Redis, and dispatch via WSAPI WhatsApp API.
 
     Returns:
         (success, otp_code, message, direct_whatsapp_link)
@@ -49,38 +49,39 @@ async def send_whatsapp_otp(
     direct_whatsapp_link = f"https://wa.me/{sender_phone}?text={encoded_msg}"
 
     api_key = settings.WHATSAPP_API_KEY
+    instance_id = settings.WHATSAPP_INSTANCE_ID
 
     if not api_key:
         logger.warning("WhatsApp API key not configured. Generated local OTP: %s for %s", otp, clean_phone)
         return True, otp, "WhatsApp verification link generated", direct_whatsapp_link
 
-    # Attempt dispatch to WhatsApp API gateway
     delivered = False
-    logger.info("Dispatching WhatsApp OTP to %s using API key (%s...)", clean_phone, api_key[:6])
+    logger.info("Dispatching WhatsApp OTP to %s via WSAPI (key: %s...)", clean_phone, api_key[:6])
+
+    # Call WSAPI REST endpoint (https://api.wsapi.chat/messages/text)
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+        "User-Agent": "RevaHub/1.0",
+    }
+    if instance_id:
+        headers["x-instance-id"] = instance_id
 
     try:
-        # If a custom gateway URL is specified, call it
-        if settings.WHATSAPP_GATEWAY_URL:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(
-                    settings.WHATSAPP_GATEWAY_URL,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "x-api-key": api_key,
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "to": clean_phone,
-                        "phone": clean_phone,
-                        "message": msg_text,
-                        "otp": otp,
-                    },
-                )
-                if resp.status_code in (200, 201, 202):
-                    delivered = True
-                    logger.info("Custom WhatsApp gateway delivery successful: %s", resp.status_code)
+        url = settings.WHATSAPP_GATEWAY_URL or "https://api.wsapi.chat/messages/text"
+        payload = {
+            "to": clean_phone,
+            "text": msg_text,
+        }
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            if resp.status_code in (200, 201, 202):
+                delivered = True
+                logger.info("WSAPI WhatsApp message dispatched successfully to %s (%s)", clean_phone, resp.status_code)
+            else:
+                logger.warning("WSAPI responded with status %s: %s", resp.status_code, resp.text)
     except Exception as exc:
-        logger.warning("WhatsApp API gateway dispatch notice: %s", exc)
+        logger.warning("WSAPI dispatch attempt error: %s", exc)
 
     return True, otp, "Verification code sent to WhatsApp", direct_whatsapp_link
 
