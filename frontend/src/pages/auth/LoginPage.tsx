@@ -12,7 +12,7 @@ import { Button } from '../../components/ui/Button'
 import { GoogleAuthButton } from '../../components/auth/GoogleAuthButton'
 
 const schema = z.object({
-  phone: z.string().regex(/^\d{10}$/, 'Enter 10 digits after 234'),
+  phone: z.string().min(1, 'Phone number is required'),
   password: z.string().min(1, 'Password is required'),
 })
 
@@ -27,8 +27,12 @@ export default function LoginPage() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) })
 
   const loginMutation = useMutation({
-    mutationFn: (data: FormData) =>
-      api.post('/auth/login', { phone: `234${data.phone.replace(/^0/, '')}`, password: data.password }),
+    mutationFn: (data: FormData) => {
+      const clean = data.phone.trim().replace(/\D/g, '')
+      const phoneDigits = clean.startsWith('234') ? clean.slice(3) : clean.startsWith('0') ? clean.slice(1) : clean
+      const formattedPhone = `+234${phoneDigits}`
+      return api.post('/auth/login', { phone: formattedPhone, password: data.password })
+    },
     onSuccess: async (res) => {
       const meRes = await api.get('/auth/me', {
         headers: { Authorization: `Bearer ${res.data.access_token}` },
@@ -85,8 +89,8 @@ export default function LoginPage() {
             <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium">234</span>
             <input
               type="tel"
-              placeholder="8012345678"
-              maxLength={10}
+              placeholder="7076630396"
+              maxLength={11}
               className="flex-1 px-3 py-2 border border-cream-200 bg-white text-dark-900 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-gold-400"
               {...register('phone')}
             />
