@@ -225,7 +225,7 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE tutorial_sections ADD COLUMN IF NOT EXISTS video_id VARCHAR(100);",
                 "ALTER TABLE tutorial_sections ADD COLUMN IF NOT EXISTS video_start_time INTEGER;",
                 "ALTER TABLE listing_photos ADD COLUMN IF NOT EXISTS storage_key VARCHAR(500);",
-                "ALTER TABLE listings ADD COLUMN IF NOT EXISTS product_group VARCHAR(50) DEFAULT 'raw_materials';",
+                "ALTER TABLE listings ADD COLUMN IF NOT EXISTS product_group VARCHAR(50) DEFAULT 'circular_materials';",
             ]:
                 try:
                     await db.execute(text(col_sql))

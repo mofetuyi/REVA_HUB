@@ -13,8 +13,8 @@ import { LAGOS_LGAS, MATERIAL_CATEGORIES, RAW_MATERIAL_CATEGORIES, UPCYCLED_PROD
 
 const schema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(255),
-  product_group: z.enum(['raw_materials', 'upcycled_products']).default('raw_materials'),
-  category: z.enum(['plastic', 'fabric', 'leather', 'wood', 'cardboard', 'clothes', 'circular_products', 'other']),
+  product_group: z.enum(['circular_materials', 'upcycled_products', 'raw_materials']).default('circular_materials'),
+  category: z.string().min(1, 'Select a category'),
   description: z.string().min(20, 'Please provide a more detailed description'),
   quantity: z.number({ invalid_type_error: 'Enter a number' }).positive('Must be > 0'),
   unit: z.enum(['kg', 'tonnes', 'bags', 'pieces', 'bundles', 'litres']),
@@ -23,7 +23,7 @@ const schema = z.object({
   price_ngn: z.number({ invalid_type_error: 'Enter a number' }).positive('Must be > 0'),
   lga: z.string().min(1, 'Select your LGA'),
   pickup_address: z.string().optional(),
-  collection_method: z.enum(['buyer_arranges', 'seller_arranges', 'either']),
+  collection_method: z.string().default('delivery'),
   photo_urls: z.array(z.string().url()).min(1, 'At least one photo required').max(5),
 })
 
@@ -37,11 +37,11 @@ export default function CreateListingPage() {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { product_group: 'raw_materials', collection_method: 'buyer_arranges', unit: 'kg', condition: 'used' },
+    defaultValues: { product_group: 'circular_materials', collection_method: 'delivery', unit: 'kg', condition: 'used' },
   })
 
   const category = watch('category')
-  const productGroup = watch('product_group') || 'raw_materials'
+  const productGroup = watch('product_group') || 'circular_materials'
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => api.post('/listings', { ...data, photo_urls: photos }),
@@ -147,15 +147,13 @@ export default function CreateListingPage() {
 
         {/* Product Group Selector */}
         <div>
-          <label className="label">Product Group <span className="text-red-500">*</span></label>
+          <label className="label">Product Group Hub <span className="text-red-500">*</span></label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
             <button
               type="button"
               onClick={() => {
-                setValue('product_group', 'raw_materials')
-                if (category === 'circular_products') {
-                  setValue('category', 'plastic')
-                }
+                setValue('product_group', 'circular_materials')
+                setValue('category', 'organic_products')
               }}
               className={`p-3.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
                 productGroup !== 'upcycled_products'
@@ -164,15 +162,15 @@ export default function CreateListingPage() {
               }`}
             >
               <div className="font-bold text-dark-900 text-sm flex items-center gap-1.5">
-                <span>🪵</span> Raw Materials Group
+                <span>🌿</span> Circular Material Hub
               </div>
-              <p className="text-xs text-dark-500 mt-1">Industrial offcuts, scrap bales, flakes & recovered feedstocks</p>
+              <p className="text-xs text-dark-500 mt-1">Organic byproducts, rice husk, palm shells, plastics & recovered feedstocks</p>
             </button>
             <button
               type="button"
               onClick={() => {
                 setValue('product_group', 'upcycled_products')
-                setValue('category', 'circular_products')
+                setValue('category', 'furniture')
               }}
               className={`p-3.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
                 productGroup === 'upcycled_products'
@@ -181,9 +179,9 @@ export default function CreateListingPage() {
               }`}
             >
               <div className="font-bold text-dark-900 text-sm flex items-center gap-1.5">
-                <span>✨</span> Upcycled Products Group
+                <span>✨</span> Upcycled Products Hub
               </div>
-              <p className="text-xs text-dark-500 mt-1">Artisan wares, refurbished furniture, fashion & finished goods</p>
+              <p className="text-xs text-dark-500 mt-1">Refurbished furniture, student desks, circular fashion & handmade wares</p>
             </button>
           </div>
         </div>
@@ -266,13 +264,11 @@ export default function CreateListingPage() {
           {errors.lga && <p className="text-sm text-red-600">{errors.lga.message}</p>}
         </div>
 
-        <Input label="Pickup address (optional)" placeholder="e.g. 12 Adekunle Street, Surulere" {...register('pickup_address')} />
+        <Input label="Dispatch Location / Item Address in Lagos (optional)" placeholder="e.g. 12 Adekunle Street, Surulere, Lagos" {...register('pickup_address')} />
 
-        <div>
-          <label className="label">Collection method <span className="text-red-500">*</span></label>
-          <select className="input-field" {...register('collection_method')}>
-            {COLLECTION_METHODS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
+        <div className="p-3.5 bg-cream-50 rounded-xl border border-cream-200 text-xs text-dark-600 flex items-center gap-2.5">
+          <span className="text-base">🚚</span>
+          <span><strong>Direct Doorstep Delivery:</strong> Self-pickup is disabled. Buyers provide their Lagos delivery address directly at checkout for doorstep courier dispatch.</span>
         </div>
 
         <div className="bg-cream-50 rounded-xl p-4 text-sm text-dark-600">

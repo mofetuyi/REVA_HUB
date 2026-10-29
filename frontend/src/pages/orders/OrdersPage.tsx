@@ -216,17 +216,11 @@ export default function OrdersPage() {
               {/* Logistics & Delivery Info */}
               <div className="bg-cream-50/80 p-3 rounded-xl border border-cream-200 text-xs space-y-1">
                 <span className="font-bold text-dark-800 uppercase tracking-wider text-[10px]">
-                  Fulfillment & Logistics: {order.delivery_method ? order.delivery_method.replace('_', ' ') : 'Self Pickup'}
+                  Fulfillment & Delivery
                 </span>
-                {order.delivery_method === 'reva_logistics' ? (
-                  <p className="text-dark-700">
-                    <strong>Delivery Address:</strong> {order.buyer_delivery_address || 'Lagos, Nigeria'} · <strong>Phone:</strong> {order.buyer_phone || 'On file'}
-                  </p>
-                ) : (
-                  <p className="text-dark-700">
-                    <strong>Pickup Point:</strong> {order.seller_pickup_address || 'Lagos, Nigeria'} · <strong>Seller Contact:</strong> {order.seller_contact_phone || 'Provided for dispatch'}
-                  </p>
-                )}
+                <p className="text-dark-700">
+                  <strong>Delivery Destination:</strong> {order.buyer_delivery_address || order.seller_pickup_address || 'Lagos, Nigeria'} {order.buyer_phone ? ` • Phone: ${order.buyer_phone}` : ''}
+                </p>
                 {order.seller_payout_status === 'released' && (
                   <div className="text-emerald-700 font-semibold pt-1 flex items-center gap-1">
                     <span>✓ 94% Seller Payout Transferred:</span>

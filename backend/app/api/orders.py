@@ -236,7 +236,7 @@ async def mark_in_transit(
 class DirectCheckoutRequest(BaseModel):
     listing_id: str
     quantity: float
-    delivery_method: str = "self_pickup"  # self_pickup | own_courier | reva_logistics
+    delivery_method: str = "delivery"  # direct delivery to buyer's address
     buyer_phone: Optional[str] = None
     buyer_delivery_address: Optional[str] = None
     payment_reference: Optional[str] = None
@@ -249,7 +249,7 @@ async def direct_checkout(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Direct instant checkout: choose between self-pickup, own courier, or Reva logistics.
+    """Direct instant checkout: Buyer enters delivery address in Lagos.
     Autofills payment link and creates/funds the order.
     """
     listing_res = await db.execute(select(Listing).where(Listing.id == req.listing_id))
@@ -266,13 +266,12 @@ async def direct_checkout(
     seller_res = await db.execute(select(User).where(User.id == listing.seller_id))
     seller = seller_res.scalar_one_or_none()
 
-    # Logistics validation
-    if req.delivery_method == "reva_logistics":
-        if not req.buyer_delivery_address or not (req.buyer_phone or current_user.phone):
-            raise HTTPException(
-                status_code=400,
-                detail="Delivery address and phone number are required for Reva-Hub logistics delivery",
-            )
+    # Logistics validation: delivery address is mandatory
+    if not req.buyer_delivery_address:
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide your delivery address in Lagos",
+        )
 
     unit_price = float(listing.price_ngn)
     total_amount = round(unit_price * req.quantity, 2)

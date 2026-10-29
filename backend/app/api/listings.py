@@ -107,7 +107,7 @@ def _listing_to_dict(listing: Listing, include_seller: bool = False) -> dict:
         "condition": _val(listing.condition),
         "condition_notes": listing.condition_notes,
         "price_ngn": float(listing.price_ngn) if listing.price_ngn is not None else 0.0,
-        "product_group": getattr(listing, "product_group", None) or ("upcycled_products" if _val(listing.category) == "circular_products" or any(kw in (listing.title or "").lower() for kw in ["furniture", "journal", "tote bag", "refurbished"]) else "raw_materials"),
+        "product_group": getattr(listing, "product_group", None) or ("upcycled_products" if _val(listing.category) in ["furniture", "fashion", "crafts"] or any(kw in (listing.title or "").lower() for kw in ["furniture", "journal", "tote bag", "refurbished", "bag", "stool", "chair"]) else "circular_materials"),
         "state": getattr(listing, "state", "Lagos") or "Lagos",
         "lga": listing.lga or "Lagos",
         "pickup_address": listing.pickup_address,
@@ -226,11 +226,11 @@ async def create_listing(
         counter += 1
 
     group_val = req.product_group
-    if not group_val or group_val not in ["raw_materials", "upcycled_products"]:
-        if _val(req.category) == "circular_products" or any(kw in req.title.lower() for kw in ["furniture", "journal", "tote bag", "refurbished", "bag", "stool", "chair", "desk"]):
+    if not group_val or group_val not in ["circular_materials", "raw_materials", "upcycled_products"]:
+        if _val(req.category) in ["furniture", "fashion", "crafts", "circular_products"] or any(kw in req.title.lower() for kw in ["furniture", "journal", "tote bag", "refurbished", "bag", "stool", "chair", "desk"]):
             group_val = "upcycled_products"
         else:
-            group_val = "raw_materials"
+            group_val = "circular_materials"
 
     listing = Listing(
         seller_id=current_user.id,
@@ -294,8 +294,11 @@ async def browse_listings(
             Listing.expires_at > datetime.now(timezone.utc),
         ]
 
-        if group in ["raw_materials", "upcycled_products"]:
-            filters.append(Listing.product_group == group)
+        if group:
+            if group in ["circular_materials", "raw_materials"]:
+                filters.append(or_(Listing.product_group == "circular_materials", Listing.product_group == "raw_materials"))
+            elif group == "upcycled_products":
+                filters.append(Listing.product_group == "upcycled_products")
 
         if category:
             filters.append(Listing.category == category)

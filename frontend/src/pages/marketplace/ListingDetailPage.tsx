@@ -1,7 +1,7 @@
 import React from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Package, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
+import { MapPin, Package, Truck, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
@@ -113,7 +113,7 @@ function OfferModal({ listing, onClose }: { listing: Listing; onClose: () => voi
 function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => void }) {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const [deliveryMethod, setDeliveryMethod] = React.useState<'self_pickup' | 'own_courier' | 'reva_logistics'>('self_pickup')
+  const deliveryMethod = 'delivery'
   const [buyerPhone, setBuyerPhone] = React.useState(user?.phone || '')
   const [buyerAddress, setBuyerAddress] = React.useState('')
   const [notes, setNotes] = React.useState('')
@@ -124,15 +124,20 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
   const paystackUrl = `https://paystack.shop/pay/13c70vrnsm?amount=${encodeURIComponent(totalAmount)}&price=${encodeURIComponent(totalAmount)}&product=${encodeURIComponent(listing.title)}&name=${encodeURIComponent(user?.name || '')}&email=${encodeURIComponent(user?.email || '')}&phone=${encodeURIComponent(buyerPhone || user?.phone || '')}&reva_id=${encodeURIComponent(user?.reva_id || '')}`
 
   const checkoutMutation = useMutation({
-    mutationFn: () => api.post('/orders/checkout', {
-      listing_id: listing.id,
-      quantity: Number(quantity),
-      delivery_method: deliveryMethod,
-      buyer_phone: buyerPhone || undefined,
-      buyer_delivery_address: buyerAddress || undefined,
-      notes: notes || undefined,
-      payment_reference: paymentConfirmed ? `paystack_direct_${Date.now()}` : undefined,
-    }),
+    mutationFn: () => {
+      if (!buyerAddress.trim()) {
+        throw new Error('Please enter your delivery address in Lagos')
+      }
+      return api.post('/orders/checkout', {
+        listing_id: listing.id,
+        quantity: Number(quantity),
+        delivery_method: 'delivery',
+        buyer_phone: buyerPhone || undefined,
+        buyer_delivery_address: buyerAddress.trim(),
+        notes: notes || undefined,
+        payment_reference: paymentConfirmed ? `paystack_direct_${Date.now()}` : undefined,
+      })
+    },
     onSuccess: (res) => {
       toast.success('Order placed successfully! Funds secured in Reva Escrow.')
       onClose()
@@ -387,11 +392,11 @@ export default function ListingDetailPage() {
               <span className="badge bg-dark-800 text-cream-50">{category?.icon} {category?.label}</span>
               {listing.product_group === 'upcycled_products' ? (
                 <span className="badge bg-gold-500 text-brandGreen-950 font-bold border border-gold-300">
-                  ✨ Upcycled Product Group
+                  ✨ Upcycled Products Hub
                 </span>
               ) : (
                 <span className="badge bg-brandGreen-900 text-white font-bold border border-gold-500/30">
-                  🪵 Raw Materials Group
+                  🌿 Circular Material Hub
                 </span>
               )}
               <StatusBadge status={listing.condition} />
@@ -414,8 +419,8 @@ export default function ListingDetailPage() {
               <span>{listing.lga}, Lagos{listing.pickup_address ? ` — ${listing.pickup_address}` : ''}</span>
             </div>
             <div className="flex items-start gap-2">
-              <Package className="w-4 h-4 text-dark-400 mt-0.5 flex-shrink-0" />
-              <span>{collection?.label}</span>
+              <Truck className="w-4 h-4 text-brandGreen-700 mt-0.5 flex-shrink-0" />
+              <span className="font-medium text-dark-800">Direct Doorstep Delivery across Lagos</span>
             </div>
           </div>
 

@@ -14,12 +14,16 @@ from app.core.database import Base
 
 
 class ListingCategory(str, PyEnum):
+    organic_products = "organic_products"
     plastic = "plastic"
     fabric = "fabric"
     leather = "leather"
     wood = "wood"
     cardboard = "cardboard"
     clothes = "clothes"
+    furniture = "furniture"
+    fashion = "fashion"
+    crafts = "crafts"
     circular_products = "circular_products"
     other = "other"
 

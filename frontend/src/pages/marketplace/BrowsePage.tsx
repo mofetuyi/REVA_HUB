@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
 import { Button } from '../../components/ui/Button'
 import { StatusBadge, EmptyState, Spinner, VerifiedSellerBadge } from '../../components/ui/index'
-import { MATERIAL_CATEGORIES, RAW_MATERIAL_CATEGORIES, UPCYCLED_PRODUCT_CATEGORIES, LAGOS_LGAS, LISTING_CONDITIONS, COLLECTION_METHODS, formatNGN, formatRelativeDate } from '../../lib/nigeriaData'
+import { MATERIAL_CATEGORIES, CIRCULAR_MATERIAL_CATEGORIES, RAW_MATERIAL_CATEGORIES, UPCYCLED_PRODUCT_CATEGORIES, LAGOS_LGAS, LISTING_CONDITIONS, COLLECTION_METHODS, formatNGN, formatRelativeDate } from '../../lib/nigeriaData'
 import type { Listing, PaginatedResponse } from '../../types'
 
 function ListingCardSkeleton() {
@@ -50,7 +50,7 @@ function ListingCard({ listing }: { listing: Listing }) {
           </span>
         ) : (
           <span className="absolute top-2 right-2 badge bg-brandGreen-900 text-white font-bold text-[11px] border border-gold-500/30 shadow-sm">
-            🪵 RAW MATERIAL
+            🌿 CIRCULAR MATERIAL
           </span>
         )}
       </div>
@@ -87,7 +87,7 @@ export default function BrowsePage() {
   const [filterOpen, setFilterOpen] = React.useState(false)
 
   const page = Number(params.get('page') || 1)
-  const group = (params.get('group') as 'raw_materials' | 'upcycled_products') || undefined
+  const group = (params.get('group') as 'circular_materials' | 'raw_materials' | 'upcycled_products') || undefined
   const category = params.get('category') || undefined
   const lga = params.get('lga') || undefined
   const condition = params.get('condition') || undefined
@@ -173,18 +173,18 @@ export default function BrowsePage() {
             <button
               onClick={() => {
                 const next = new URLSearchParams(params)
-                next.set('group', 'raw_materials')
+                next.set('group', 'circular_materials')
                 next.delete('category')
                 next.set('page', '1')
                 setParams(next)
               }}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                group === 'raw_materials'
+                group === 'circular_materials' || group === 'raw_materials'
                   ? 'bg-brandGreen-900 text-white shadow-sm border border-gold-500/40'
                   : 'text-dark-700 hover:text-dark-900 hover:bg-white/70'
               }`}
             >
-              <span>🪵</span> Raw Materials Group
+              <span>🌿</span> Circular Material Hub
             </button>
             <button
               onClick={() => {
@@ -200,18 +200,18 @@ export default function BrowsePage() {
                   : 'text-dark-700 hover:text-dark-900 hover:bg-white/70'
               }`}
             >
-              <span>✨</span> Upcycled Products Group
+              <span>✨</span> Upcycled Products Hub
             </button>
           </div>
 
           <div className="text-xs font-medium text-dark-500 px-1">
-            {group === 'raw_materials' ? (
+            {group === 'circular_materials' || group === 'raw_materials' ? (
               <span className="text-brandGreen-900">
-                🪵 <strong>Raw Materials</strong>: Sorted industrial bales, PET flakes, timber, scraps & raw feedstocks
+                🌿 <strong>Circular Material Hub</strong>: Organic products, rice husk, palm shells, PET flakes, timber & feedstocks
               </span>
             ) : group === 'upcycled_products' ? (
               <span className="text-gold-700">
-                ✨ <strong>Upcycled Products</strong>: Finished denim pouches, bucket bags, crate tables & restored furniture
+                ✨ <strong>Upcycled Products Hub</strong>: Restored furniture, student desks, circular denim fashion & lifestyle wares
               </span>
             ) : (
               <span>Trading recovered raw materials and artisan upcycled products in Lagos</span>
@@ -229,9 +229,9 @@ export default function BrowsePage() {
                 : 'bg-white border-cream-200 text-dark-700 hover:border-gold-400'
             }`}
           >
-            All {group === 'raw_materials' ? 'Raw Materials' : group === 'upcycled_products' ? 'Upcycled Goods' : 'Categories'}
+            All {group === 'circular_materials' || group === 'raw_materials' ? 'Raw Materials' : group === 'upcycled_products' ? 'Upcycled Goods' : 'Categories'}
           </button>
-          {(group === 'raw_materials'
+          {(group === 'circular_materials' || group === 'raw_materials'
             ? RAW_MATERIAL_CATEGORIES
             : group === 'upcycled_products'
             ? UPCYCLED_PRODUCT_CATEGORIES
