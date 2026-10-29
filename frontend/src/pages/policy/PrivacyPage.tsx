@@ -5,23 +5,12 @@ import { Link } from 'react-router-dom'
 export default function PrivacyPage() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 space-y-8">
-      {/* Draft Warning Banner */}
-      <div className="bg-amber-100 border-2 border-amber-400 p-4 rounded-2xl flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-900 space-y-1">
-          <p className="font-bold text-sm">DRAFT — FOR LEGAL & PRIVACY REVIEW ONLY</p>
-          <p>
-            This document outlines preliminary data processing practices for the Reva Hub MVP under the Nigeria Data Protection Act (NDPA). It has not been finalized and does not constitute a final binding privacy policy.
-          </p>
-        </div>
-      </div>
-
       <div className="border-b border-cream-200 pb-6">
         <h1 className="font-display text-3xl font-bold text-dark-900 flex items-center gap-2">
           <ShieldCheck className="w-7 h-7 text-gold-600" />
-          Privacy Policy (Draft)
+          Privacy Policy
         </h1>
-        <p className="text-xs text-dark-500 mt-1">Platform Version 1.0 (Draft)</p>
+        <p className="text-xs text-dark-500 mt-1">Platform Version 1.0 • Effective 2026</p>
       </div>
 
       <div className="prose prose-sm max-w-none text-dark-700 space-y-6 text-xs leading-relaxed">

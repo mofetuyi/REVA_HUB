@@ -346,7 +346,11 @@ async def browse_listings(
                 filters.append(Listing.product_group == "upcycled_products")
 
         if category:
-            filters.append(Listing.category == category)
+            cat_val = _val(category)
+            if cat_val in ["organic_products", "circular_products"]:
+                filters.append(Listing.category.in_([ListingCategory.organic_products, ListingCategory.circular_products]))
+            else:
+                filters.append(Listing.category == category)
         if lga:
             filters.append(Listing.lga == lga)
         if price_min is not None:

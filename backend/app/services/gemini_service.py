@@ -83,6 +83,8 @@ async def chat(
     user_message: str,
     db: AsyncSession,
     conversation_history: Optional[List[Dict[str, Any]]] = None,
+    image_b64: Optional[str] = None,
+    image_mime_type: Optional[str] = "image/jpeg",
 ) -> str:
     """Send message to Google Gemini API (Revi) and return assistant response."""
     import base64
@@ -91,9 +93,9 @@ async def chat(
 
     # Context grounding from database
     context_str = await get_relevant_context(user_message, db)
-    grounded_message = user_message
+    grounded_message = user_message or "Please analyze this image for materials, recycling potential, and estimated value in Lagos."
     if context_str:
-        grounded_message = f"{context_str}\n\nUser Question: {user_message}"
+        grounded_message = f"{context_str}\n\nUser Question: {grounded_message}"
 
     # Build contents array
     contents = []
@@ -109,11 +111,21 @@ async def chat(
             if text_val:
                 contents.append({"role": role, "parts": [{"text": text_val}]})
 
-    contents.append({"role": "user", "parts": [{"text": grounded_message}]})
+    # Prepare user parts (text + optional multimodal image)
+    user_parts: List[Dict[str, Any]] = [{"text": grounded_message}]
+    if image_b64:
+        user_parts.append({
+            "inlineData": {
+                "mimeType": image_mime_type or "image/jpeg",
+                "data": image_b64,
+            }
+        })
+
+    contents.append({"role": "user", "parts": user_parts})
 
     payload = {
         "systemInstruction": {
-            "parts": [{"text": REVI_SYSTEM_PROMPT}]
+            "parts": [{"text": REVI_SYSTEM_PROMPT + "\n\nWhen given an image, visually identify the material (e.g. clear PET flakes, agricultural husk, scrap timber, brass, fabric scraps), grade its quality/cleanliness, estimate its current scrap/market value in Lagos, and recommend whether to list it on Reva Hub or upcycle it."}]
         },
         "contents": contents,
         "generationConfig": {

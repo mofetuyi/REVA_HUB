@@ -149,8 +149,8 @@ export default function PolicyPage() {
       {/* Related Links */}
       <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-cream-200 text-xs text-dark-600">
         <div className="flex items-center gap-4">
-          <Link to="/terms" className="hover:text-gold-600 underline">Terms of Service (Draft)</Link>
-          <Link to="/privacy" className="hover:text-gold-600 underline">Privacy Policy (Draft)</Link>
+          <Link to="/terms" className="hover:text-gold-600 underline">Terms of Service</Link>
+          <Link to="/privacy" className="hover:text-gold-600 underline">Privacy Policy</Link>
           <Link to="/premium" className="hover:text-gold-600 underline">Reva Hub Premium</Link>
         </div>
         <p>© {new Date().getFullYear()} Reva Hub Nigeria. All rights reserved.</p>

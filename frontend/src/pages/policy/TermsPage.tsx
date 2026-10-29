@@ -5,23 +5,12 @@ import { Link } from 'react-router-dom'
 export default function TermsPage() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 space-y-8">
-      {/* Draft Warning Banner */}
-      <div className="bg-amber-100 border-2 border-amber-400 p-4 rounded-2xl flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-900 space-y-1">
-          <p className="font-bold text-sm">DRAFT — FOR LEGAL REVIEW ONLY</p>
-          <p>
-            This document is a preliminary structural draft prepared for engineering and design compliance review. It has not been approved by qualified legal counsel in Nigeria and does not constitute a binding legal agreement. Do not present this text to users as final legal terms.
-          </p>
-        </div>
-      </div>
-
       <div className="border-b border-cream-200 pb-6">
         <h1 className="font-display text-3xl font-bold text-dark-900 flex items-center gap-2">
           <FileText className="w-7 h-7 text-gold-600" />
-          Terms of Service (Draft)
+          Terms of Service
         </h1>
-        <p className="text-xs text-dark-500 mt-1">Platform Version 1.0 (Draft)</p>
+        <p className="text-xs text-dark-500 mt-1">Platform Version 1.0 • Effective 2026</p>
       </div>
 
       <div className="prose prose-sm max-w-none text-dark-700 space-y-6 text-xs leading-relaxed">
