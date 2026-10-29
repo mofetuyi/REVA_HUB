@@ -1,9 +1,11 @@
 """Admin API routes."""
 
+import uuid
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 from typing import Optional
 
@@ -24,9 +26,14 @@ class ModerateListing(BaseModel):
     notes: Optional[str] = None
 
 
+class RejectListingRequest(BaseModel):
+    reason: Optional[str] = "Item does not meet marketplace criteria"
+
+
 class ResolveDispute(BaseModel):
     resolution: str  # refund | release
     notes: str
+
 
 
 class ModerateUser(BaseModel):
@@ -72,7 +79,7 @@ async def dashboard_stats(
 async def admin_listings(
     moderation_status: Optional[str] = "pending",
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = 50,
     current_user=Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -84,26 +91,105 @@ async def admin_listings(
             pass
 
     q = await db.execute(
-        select(Listing).where(*filters).order_by(Listing.created_at.desc())
-        .offset((page - 1) * page_size).limit(page_size)
+        select(Listing)
+        .options(selectinload(Listing.photos), selectinload(Listing.seller))
+        .where(*filters)
+        .order_by(Listing.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
     listings = q.scalars().all()
-    return [
-        {
+    res = []
+    for l in listings:
+        seller_obj = l.__dict__.get("seller")
+        photos_list = []
+        if "photos" in l.__dict__ and l.photos:
+            photos_list = [{"url": p.url, "order_index": p.order_index} for p in l.photos]
+        res.append({
             "id": str(l.id),
             "title": l.title,
-            "category": l.category.value,
+            "category": l.category.value if hasattr(l.category, "value") else str(l.category),
+            "product_group": getattr(l, "product_group", "circular_materials"),
             "seller_id": str(l.seller_id),
-            "lga": l.lga,
-            "price_ngn": float(l.price_ngn),
-            "moderation_status": l.moderation_status.value,
-            "status": l.status.value,
+            "seller_name": seller_obj.name if seller_obj else "Verified Trader",
+            "lga": l.lga or "Lagos",
+            "quantity": float(l.quantity) if l.quantity else 1.0,
+            "unit": l.unit.value if hasattr(l.unit, "value") else str(l.unit),
+            "price_ngn": float(l.price_ngn) if l.price_ngn else 0.0,
+            "moderation_status": l.moderation_status.value if hasattr(l.moderation_status, "value") else str(l.moderation_status),
+            "status": l.status.value if hasattr(l.status, "value") else str(l.status),
             "is_flagged": l.is_flagged,
             "flag_count": l.flag_count,
-            "created_at": l.created_at.isoformat(),
-        }
-        for l in listings
-    ]
+            "created_at": l.created_at.isoformat() if l.created_at else None,
+            "photos": photos_list,
+        })
+    return res
+
+
+@router.post("/listings/{listing_id}/approve")
+@router.put("/listings/{listing_id}/approve")
+async def admin_approve_listing(
+    listing_id: str,
+    current_user=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Approve a pending listing so it broadcasts immediately to all buyers in Lagos."""
+    target = None
+    try:
+        lid = uuid.UUID(listing_id)
+        res = await db.execute(select(Listing).where(Listing.id == lid))
+        target = res.scalar_one_or_none()
+    except ValueError:
+        pass
+    if not target:
+        res = await db.execute(select(Listing).where(Listing.slug == listing_id))
+        target = res.scalar_one_or_none()
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    target.moderation_status = ModerationStatus.approved
+    target.status = ListingStatus.active
+    await db.commit()
+    await db.refresh(target)
+    logger.info("Admin %s approved listing %s (%s)", current_user.id, target.id, target.title)
+    return {
+        "message": "Listing approved and published to the marketplace!",
+        "id": str(target.id),
+        "status": target.status.value,
+        "moderation_status": target.moderation_status.value,
+    }
+
+
+@router.post("/listings/{listing_id}/reject")
+@router.put("/listings/{listing_id}/reject")
+async def admin_reject_listing(
+    listing_id: str,
+    req: Optional[RejectListingRequest] = None,
+    current_user=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reject a listing and remove it from active broadcast."""
+    target = None
+    try:
+        lid = uuid.UUID(listing_id)
+        res = await db.execute(select(Listing).where(Listing.id == lid))
+        target = res.scalar_one_or_none()
+    except ValueError:
+        pass
+    if not target:
+        res = await db.execute(select(Listing).where(Listing.slug == listing_id))
+        target = res.scalar_one_or_none()
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    target.moderation_status = ModerationStatus.rejected
+    target.status = ListingStatus.delisted
+    target.moderation_notes = req.reason if (req and req.reason) else "Rejected by admin moderation"
+    await db.commit()
+    logger.info("Admin %s rejected listing %s (%s)", current_user.id, target.id, target.title)
+    return {"message": "Listing rejected and delisted", "id": str(target.id)}
 
 
 @router.put("/listings/{listing_id}/moderate")
@@ -113,22 +199,33 @@ async def moderate_listing(
     current_user=Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Listing).where(Listing.id == listing_id))
-    listing = result.scalar_one_or_none()
-    if not listing:
+    target = None
+    try:
+        lid = uuid.UUID(listing_id)
+        res = await db.execute(select(Listing).where(Listing.id == lid))
+        target = res.scalar_one_or_none()
+    except ValueError:
+        pass
+    if not target:
+        res = await db.execute(select(Listing).where(Listing.slug == listing_id))
+        target = res.scalar_one_or_none()
+
+    if not target:
         raise HTTPException(status_code=404, detail="Listing not found")
 
     if req.decision == "approve":
-        listing.moderation_status = ModerationStatus.approved
+        target.moderation_status = ModerationStatus.approved
+        target.status = ListingStatus.active
     elif req.decision == "reject":
-        listing.moderation_status = ModerationStatus.rejected
-        listing.status = ListingStatus.delisted
-        listing.moderation_notes = req.notes
+        target.moderation_status = ModerationStatus.rejected
+        target.status = ListingStatus.delisted
+        target.moderation_notes = req.notes or "Rejected by moderation"
     else:
         raise HTTPException(status_code=400, detail="Decision must be 'approve' or 'reject'")
 
     await db.commit()
-    return {"message": f"Listing {req.decision}d"}
+    return {"message": f"Listing {req.decision}d", "id": str(target.id)}
+
 
 
 @router.get("/disputes")

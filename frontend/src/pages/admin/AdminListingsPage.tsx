@@ -28,8 +28,9 @@ export default function AdminListingsPage() {
   const approveMutation = useMutation({
     mutationFn: (id: string) => api.post(`/admin/listings/${id}/approve`),
     onSuccess: () => {
-      toast.success('Listing approved and published!')
+      toast.success('Listing approved and published to the marketplace!')
       queryClient.invalidateQueries({ queryKey: ['adminListings'] })
+      queryClient.invalidateQueries({ queryKey: ['listings'] })
     },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -84,28 +85,39 @@ export default function AdminListingsPage() {
               key={item.id}
               className="bg-white p-5 rounded-2xl border border-cream-200 hover:border-gold-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
-              <div className="space-y-1.5 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-cream-100 text-dark-700 capitalize">
-                    {item.category}
-                  </span>
-                  <span className="text-xs text-dark-400">· {item.lga}, Lagos</span>
-                  {item.is_flagged && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-700 rounded-full flex items-center gap-1">
-                      <ShieldAlert className="w-3 h-3" /> Flagged ({item.flag_count})
+              <div className="flex items-start gap-4 flex-1">
+                {item.photos && item.photos.length > 0 ? (
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-cream-100 border border-cream-200 shrink-0">
+                    <img src={item.photos[0].url} alt={item.title} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-xl bg-cream-100 flex items-center justify-center text-xl shrink-0">
+                    📦
+                  </div>
+                )}
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-cream-100 text-dark-700 capitalize">
+                      {item.category}
                     </span>
-                  )}
-                </div>
-                <h2 className="font-display font-bold text-base text-dark-900">{item.title}</h2>
-                <p className="text-xs text-dark-600 line-clamp-2">{item.description}</p>
-                <div className="flex items-center gap-4 text-xs pt-1">
-                  <span className="font-semibold text-dark-900">
-                    <PriceDisplay amount={Number(item.price_ngn)} />
-                  </span>
-                  <span className="text-dark-500">
-                    {item.quantity} {item.unit}
-                  </span>
-                  <span className="text-dark-400">Seller: {item.seller_name || 'Seller'}</span>
+                    <span className="text-xs text-dark-400">· {item.lga}, Lagos</span>
+                    {item.is_flagged && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-700 rounded-full flex items-center gap-1">
+                        <ShieldAlert className="w-3 h-3" /> Flagged ({item.flag_count})
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="font-display font-bold text-base text-dark-900">{item.title}</h2>
+                  <p className="text-xs text-dark-600 line-clamp-2">{item.description}</p>
+                  <div className="flex items-center gap-4 text-xs pt-1">
+                    <span className="font-semibold text-dark-900">
+                      <PriceDisplay amount={Number(item.price_ngn)} />
+                    </span>
+                    <span className="text-dark-500">
+                      {item.quantity} {item.unit}
+                    </span>
+                    <span className="text-dark-400">Seller: {item.seller_name || 'Seller'}</span>
+                  </div>
                 </div>
               </div>
 
