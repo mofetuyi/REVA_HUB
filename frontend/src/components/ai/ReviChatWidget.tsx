@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { MessageSquare, X, Send, Sparkles, RefreshCw, ChevronDown, Minimize2 } from 'lucide-react'
-import { api } from '../../lib/api'
+import { MessageSquare, X, Send, Sparkles, RefreshCw, Crown, Lock, ArrowRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import { api, extractError } from '../../lib/api'
+import { useAuthStore } from '../../store/authStore'
 
 interface ChatMessage {
   id: string
@@ -16,7 +19,9 @@ const QUICK_PROMPTS = [
 ]
 
 export default function ReviChatWidget() {
+  const { user, isAuthenticated, activatePremium } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
+  const [activating, setActivating] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'revi-welcome',
@@ -29,19 +34,26 @@ export default function ReviChatWidget() {
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  const isPremium = Boolean(user?.is_premium || user?.is_admin)
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isPremium) {
       scrollToBottom()
     }
-  }, [messages, isLoading, isOpen])
+  }, [messages, isLoading, isOpen, isPremium])
 
   const handleSend = async (textToSend?: string) => {
     const text = (textToSend || input).trim()
     if (!text || isLoading) return
+
+    if (!isPremium) {
+      toast.error('Revi AI is reserved for Reva Premium members.')
+      return
+    }
 
     const userMsg: ChatMessage = { id: String(Date.now()), role: 'user', content: text }
     const updated = [...messages, userMsg]
@@ -70,7 +82,9 @@ export default function ReviChatWidget() {
           content: botText,
         },
       ])
-    } catch {
+    } catch (err) {
+      const errorMsg = extractError(err)
+      toast.error(errorMsg)
       setMessages((prev) => [
         ...prev,
         {
@@ -82,6 +96,19 @@ export default function ReviChatWidget() {
       ])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleActivatePremium = async () => {
+    setActivating(true)
+    try {
+      await api.post('/auth/premium/activate-month')
+      activatePremium(30)
+      toast.success('👑 Welcome to Reva Premium! Revi AI is now unlocked.')
+    } catch (err) {
+      toast.error(extractError(err))
+    } finally {
+      setActivating(false)
     }
   }
 
@@ -101,7 +128,7 @@ export default function ReviChatWidget() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-2.5 px-4 py-3 bg-[#062E12] hover:bg-[#08421a] text-white rounded-full shadow-2xl border-2 border-gold-400 hover:scale-105 active:scale-95 transition-all duration-200 group"
+          className="flex items-center gap-2.5 px-4 py-3 bg-[#062E12] hover:bg-[#08421a] text-white rounded-full shadow-2xl border-2 border-gold-400 hover:scale-105 active:scale-95 transition-all duration-200 group cursor-pointer"
           aria-label="Chat with Revi AI"
         >
           <div className="relative">
@@ -109,10 +136,15 @@ export default function ReviChatWidget() {
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-400 rounded-full border border-dark-900 animate-pulse" />
           </div>
           <div className="text-left">
-            <span className="block text-xs font-black tracking-wide text-white group-hover:text-gold-300">
-              Chat with Revi
-            </span>
-            <span className="block text-[10px] text-gold-300/80 font-medium leading-none">
+            <div className="flex items-center gap-1">
+              <span className="block text-xs font-black tracking-wide text-white group-hover:text-gold-300">
+                Chat with Revi
+              </span>
+              <span className="text-[10px] font-bold px-1 rounded bg-gold-400/20 text-gold-300 border border-gold-400/40">
+                👑 Premium
+              </span>
+            </div>
+            <span className="block text-[10px] text-gold-300/80 font-medium leading-none mt-0.5">
               Inbuilt AI Assistant
             </span>
           </div>
@@ -131,27 +163,35 @@ export default function ReviChatWidget() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-display font-bold text-sm text-white">Revi AI</h3>
-                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-green-500/20 text-green-300 border border-green-500/40">
-                    Online
-                  </span>
+                  {isPremium ? (
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-gold-400/20 text-gold-300 border border-gold-400/40 flex items-center gap-0.5">
+                      <Crown className="w-2.5 h-2.5" /> Premium
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-0.5">
+                      <Lock className="w-2.5 h-2.5" /> Premium Only
+                    </span>
+                  )}
                 </div>
                 <p className="text-[10px] text-gold-200/90">Lagos Circular Economy Guide</p>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={resetChat}
-                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                title="Reset Conversation"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
+              {isPremium && (
+                <button
+                  type="button"
+                  onClick={resetChat}
+                  className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                  title="Reset Conversation"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                 title="Close Revi"
               >
                 <X className="w-4 h-4" />
@@ -159,78 +199,119 @@ export default function ReviChatWidget() {
             </div>
           </div>
 
-          {/* Messages Container */}
-          <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-[#FAF8F5] text-xs">
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={`flex items-start gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {m.role === 'assistant' && (
-                  <div className="w-6 h-6 rounded-lg bg-[#062E12] text-gold-400 flex items-center justify-center text-xs shrink-0 mt-0.5">
-                    🌿
+          {/* Premium Gating Card if not Premium */}
+          {!isPremium ? (
+            <div className="flex-1 p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-[#FAF8F5] to-white">
+              <div className="w-16 h-16 rounded-2xl bg-gold-50 border border-gold-200 flex items-center justify-center text-3xl mb-4 shadow-sm">
+                👑
+              </div>
+              <h4 className="text-base font-display font-bold text-dark-900 mb-1">
+                Revi AI is for Premium Users Only
+              </h4>
+              <p className="text-xs text-dark-600 leading-relaxed max-w-[280px] mb-6">
+                Unlock 24/7 personalized circular economy intelligence, instant material market prices, and Lagos logistics advisory with Reva Premium.
+              </p>
+
+              {!isAuthenticated ? (
+                <Link
+                  to="/login"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full py-3 px-4 bg-[#062E12] hover:bg-[#08421a] text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center justify-center gap-1.5"
+                >
+                  Sign In to Access Premium
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleActivatePremium}
+                  disabled={activating}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-dark-900 text-xs font-black rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="w-4 h-4 text-dark-900" />
+                  {activating ? 'Activating Premium...' : 'Activate Reva Premium (Instant Access)'}
+                </button>
+              )}
+              <p className="text-[10px] text-dark-400 mt-3">
+                Includes verified badge, priority listing placement & Revi AI.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Messages Container */}
+              <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-[#FAF8F5] text-xs">
+                {messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`flex items-start gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {m.role === 'assistant' && (
+                      <div className="w-6 h-6 rounded-lg bg-[#062E12] text-gold-400 flex items-center justify-center text-xs shrink-0 mt-0.5">
+                        🌿
+                      </div>
+                    )}
+                    <div
+                      className={`p-3 rounded-2xl max-w-[82%] leading-relaxed whitespace-pre-wrap ${
+                        m.role === 'user'
+                          ? 'bg-[#062E12] text-white rounded-br-none shadow-sm'
+                          : 'bg-white text-dark-900 rounded-bl-none border border-cream-200 shadow-sm'
+                      }`}
+                    >
+                      {m.content}
+                    </div>
+                  </div>
+                ))}
+
+                {isLoading && (
+                  <div className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-cream-200 max-w-[200px] text-[11px] text-dark-500">
+                    <span className="w-2 h-2 rounded-full bg-gold-500 animate-ping" />
+                    <span>Revi is thinking...</span>
                   </div>
                 )}
-                <div
-                  className={`p-3 rounded-2xl max-w-[82%] leading-relaxed whitespace-pre-wrap ${
-                    m.role === 'user'
-                      ? 'bg-[#062E12] text-white rounded-br-none shadow-sm'
-                      : 'bg-white text-dark-900 rounded-bl-none border border-cream-200 shadow-sm'
-                  }`}
-                >
-                  {m.content}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Quick Prompts */}
+              {messages.length <= 3 && !isLoading && (
+                <div className="px-3 py-2 bg-cream-50/80 border-t border-cream-200 flex gap-1.5 overflow-x-auto no-scrollbar">
+                  {QUICK_PROMPTS.map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSend(p)}
+                      className="shrink-0 text-[10px] font-medium px-2.5 py-1 bg-white hover:bg-gold-50 text-dark-700 hover:text-gold-900 rounded-full border border-cream-200 transition-colors cursor-pointer"
+                    >
+                      {p}
+                    </button>
+                  ))}
                 </div>
-              </div>
-            ))}
+              )}
 
-            {isLoading && (
-              <div className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-cream-200 max-w-[200px] text-[11px] text-dark-500">
-                <span className="w-2 h-2 rounded-full bg-gold-500 animate-ping" />
-                <span>Revi is thinking...</span>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Quick Prompts */}
-          {messages.length <= 3 && !isLoading && (
-            <div className="px-3 py-2 bg-cream-50/80 border-t border-cream-200 flex gap-1.5 overflow-x-auto no-scrollbar">
-              {QUICK_PROMPTS.map((p, idx) => (
+              {/* Input Form */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  handleSend()
+                }}
+                className="p-2.5 bg-white border-t border-cream-200 flex items-center gap-2"
+              >
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask Revi anything about Reva..."
+                  className="flex-1 text-xs border border-cream-300 rounded-xl px-3 py-2 bg-cream-50/60 focus:outline-none focus:ring-2 focus:ring-[#062E12] text-dark-900"
+                />
                 <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSend(p)}
-                  className="shrink-0 text-[10px] font-medium px-2.5 py-1 bg-white hover:bg-gold-50 text-dark-700 hover:text-gold-900 rounded-full border border-cream-200 transition-colors"
+                  type="submit"
+                  disabled={!input.trim() || isLoading}
+                  className="p-2 bg-[#062E12] hover:bg-[#08421a] disabled:opacity-40 text-white rounded-xl transition-colors shadow-sm cursor-pointer"
                 >
-                  {p}
+                  <Send className="w-3.5 h-3.5" />
                 </button>
-              ))}
-            </div>
+              </form>
+            </>
           )}
-
-          {/* Input Form */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleSend()
-            }}
-            className="p-2.5 bg-white border-t border-cream-200 flex items-center gap-2"
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Revi anything about Reva..."
-              className="flex-1 text-xs border border-cream-300 rounded-xl px-3 py-2 bg-cream-50/60 focus:outline-none focus:ring-2 focus:ring-[#062E12] text-dark-900"
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="p-2 bg-[#062E12] hover:bg-[#08421a] disabled:opacity-40 text-white rounded-xl transition-colors shadow-sm"
-            >
-              <Send className="w-3.5 h-3.5" />
-            </button>
-          </form>
         </div>
       )}
     </div>

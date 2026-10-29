@@ -205,11 +205,10 @@ async def get_optional_user(
 
 
 def require_seller_mode(current_user=Depends(get_current_user)):
+    """Allow seller operations, automatically enabling seller mode if in buyer mode."""
     if current_user.current_mode != "seller":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Switch to seller mode to perform this action",
-        )
+        current_user.current_mode = "seller"
+        current_user.is_seller = True
     return current_user
 
 

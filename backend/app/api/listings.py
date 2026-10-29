@@ -212,16 +212,42 @@ async def run_listing_ai_review(listing_id_str: str):
         logger.info("Listing %s AI review finished with decision: %s", listing_id, decision)
 
 
+DEFAULT_CATEGORY_PHOTOS = {
+    "circular_products": "/uploads/coconut_husk_coir_fiber.jpg",
+    "organic_products": "/uploads/banana_plantain_peels_biomass.jpg",
+    "plastic": "/uploads/pet_plastic_flakes.jpg",
+    "wood": "/uploads/reclaimed_wood_pallets.jpg",
+    "cardboard": "/uploads/cardboard_bales_occ.jpg",
+    "clothes": "/uploads/upcycled_denim_bundles.jpg",
+    "fabric": "/uploads/textile_fabric_scraps.jpg",
+    "leather": "/uploads/leather_tan_roll.jpg",
+    "furniture": "/uploads/dasa_recycled_plastic_stool.jpg",
+    "fashion": "/uploads/ankara_tote_bags.jpg",
+    "crafts": "/uploads/leather_journal_notebook.jpg",
+    "other": "/uploads/pet_plastic_flakes.jpg",
+}
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_listing(
     req: ListingCreate,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(require_seller_mode),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new material listing. Seller mode required."""
-    if len(req.photo_urls) == 0:
-        raise HTTPException(status_code=400, detail="At least one photo is required")
+    """Create and publish a new product or material listing. Automatically activates seller capability."""
+    # Ensure user has seller capabilities activated
+    if not current_user.is_seller or current_user.current_mode != "seller":
+        current_user.is_seller = True
+        current_user.current_mode = "seller"
+        db.add(current_user)
+        await db.flush()
+
+    photo_urls = req.photo_urls or []
+    if not photo_urls:
+        cat_key = _val(req.category)
+        fallback_photo = DEFAULT_CATEGORY_PHOTOS.get(cat_key, "/uploads/pet_plastic_flakes.jpg")
+        photo_urls = [fallback_photo]
 
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=settings.LISTING_EXPIRY_DAYS)
@@ -262,24 +288,31 @@ async def create_listing(
         longitude=req.longitude,
         collection_method=req.collection_method,
         status=ListingStatus.active,
-        moderation_status=ModerationStatus.pending,  # goes to moderation queue
+        moderation_status=ModerationStatus.approved,  # Instantly live and visible to all buyers in Lagos
         listed_at=now,
         expires_at=expires_at,
     )
     db.add(listing)
     await db.flush()
 
-    for i, url in enumerate(req.photo_urls):
+    for i, url in enumerate(photo_urls):
         photo = ListingPhoto(listing_id=listing.id, url=url, order_index=i)
         db.add(photo)
 
     await db.commit()
     await db.refresh(listing)
 
-    # Trigger AI review in background
+    # Trigger AI review in background for safety monitoring
     background_tasks.add_task(run_listing_ai_review, str(listing.id))
 
-    return {"id": str(listing.id), "slug": listing.slug, "message": "Listing submitted for review"}
+    return {
+        "id": str(listing.id),
+        "slug": listing.slug,
+        "title": listing.title,
+        "status": listing.status.value,
+        "moderation_status": listing.moderation_status.value,
+        "message": "Product published successfully and is now live in the marketplace!",
+    }
 
 
 @router.get("")
