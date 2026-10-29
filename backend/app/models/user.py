@@ -111,6 +111,13 @@ class User(Base):
     tutor_approved_at = Column(DateTime(timezone=True), nullable=True)
     tutor_earnings_naira = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
 
+    # Bank Details & Paystack Automated Payouts
+    bank_name = Column(String(100), nullable=True)
+    bank_code = Column(String(20), nullable=True)
+    bank_account_number = Column(String(50), nullable=True)
+    bank_account_name = Column(String(255), nullable=True)
+    paystack_recipient_code = Column(String(100), nullable=True)  # Paystack Transfer Recipient (e.g. RCP_...)
+
     # Compliance / policy acceptance
     policy_version_accepted = Column(String(20), nullable=True)   # e.g. "1.0"
     policy_accepted_at = Column(DateTime(timezone=True), nullable=True)

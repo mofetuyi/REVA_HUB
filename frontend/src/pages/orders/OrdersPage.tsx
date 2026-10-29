@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { Truck, MessageSquare, ExternalLink, CheckCircle2, Clock, ShieldCheck, MapPin } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
@@ -8,6 +9,78 @@ import { Button } from '../../components/ui/Button'
 import { StatusBadge, EmptyState, LoadingPage, PriceDisplay } from '../../components/ui/index'
 import { formatNGN, formatDate } from '../../lib/nigeriaData'
 import type { Order } from '../../types'
+
+function TrackingModal({ order, onClose }: { order: Order; onClose: () => void }) {
+  const { data: trackData, isLoading } = useQuery({
+    queryKey: ['tracking', order.id],
+    queryFn: async () => (await api.get(`/logistics/track/${order.id}`)).data,
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-dark-900/60 animate-fade-in" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg p-6 space-y-4 animate-slide-up" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Truck className="w-5 h-5 text-[#062E12]" />
+            <h2 className="font-display font-bold text-lg text-gray-900">Courier Tracking Timeline</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 font-bold">✕</button>
+        </div>
+
+        {isLoading ? (
+          <div className="py-8 text-center text-xs text-gray-500">Loading live tracking updates...</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Courier Partner</span>
+                <p className="text-sm font-bold text-emerald-950 mt-0.5">{trackData?.courier_provider || 'Kwik Delivery / GIGL Express'}</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Tracking Code</span>
+                <p className="text-xs font-mono font-bold text-emerald-900 mt-0.5">{trackData?.tracking_code || 'REV-KWIK-TRACK'}</p>
+              </div>
+            </div>
+
+            <div className="text-xs text-gray-600 flex items-start gap-1.5">
+              <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+              <span><strong>Destination:</strong> {trackData?.delivery_address || order.buyer_delivery_address || 'Lagos, Nigeria'}</span>
+            </div>
+
+            {/* Timeline Steps */}
+            <div className="space-y-3 pt-2">
+              {(trackData?.timeline || []).map((step: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                    step.completed ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-400'
+                  }`}>
+                    {step.completed ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-3.5 h-3.5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-bold ${step.completed ? 'text-gray-900' : 'text-gray-400'}`}>{step.step}</span>
+                      <span className="text-[10px] text-gray-400">{step.time}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{step.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-900 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-700 flex-shrink-0" />
+              <span>Protected by Reva Escrow until buyer inspects the package.</span>
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2">
+          <Button variant="secondary" onClick={onClose} fullWidth>Close</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function FeeBreakdown({ order }: { order: Order }) {
   const sellerProceeds = order.seller_proceeds_ngn || (order.total_amount_ngn * 0.94)
@@ -129,6 +202,8 @@ export default function OrdersPage() {
   const [tab, setTab] = React.useState<'buying' | 'selling'>('buying')
   const [disputeOrder, setDisputeOrder] = React.useState<Order | null>(null)
   const [reviewOrder, setReviewOrder] = React.useState<Order | null>(null)
+  const [trackingOrder, setTrackingOrder] = React.useState<Order | null>(null)
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const { data: orders, isLoading } = useQuery<Order[]>({
@@ -261,6 +336,26 @@ export default function OrdersPage() {
                     Leave Review
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setTrackingOrder(order)}
+                  className="flex items-center gap-1.5 text-xs text-[#062E12] font-semibold"
+                >
+                  <Truck className="w-3.5 h-3.5" /> Track Delivery
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    const otherId = tab === 'buying' ? order.seller_id : order.buyer_id
+                    navigate(`/messages?sellerId=${otherId}&listingId=${order.listing_id}`)
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-[#062E12]"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-[#062E12]" /> Chat
+                </Button>
+
               </div>
 
               {order.commission_ngn > 0 && <FeeBreakdown order={order} />}
@@ -287,6 +382,7 @@ export default function OrdersPage() {
 
       {disputeOrder && <DisputeModal order={disputeOrder} onClose={() => setDisputeOrder(null)} />}
       {reviewOrder && <ReviewModal order={reviewOrder} onClose={() => setReviewOrder(null)} />}
+      {trackingOrder && <TrackingModal order={trackingOrder} onClose={() => setTrackingOrder(null)} />}
     </div>
   )
 }

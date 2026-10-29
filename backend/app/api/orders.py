@@ -83,6 +83,12 @@ def _order_to_dict(order: Order) -> dict:
         "seller_pickup_address": getattr(order, "seller_pickup_address", None),
         "seller_payout_reference": getattr(order, "seller_payout_reference", None),
         "seller_payout_status": getattr(order, "seller_payout_status", "pending") or "pending",
+        "cart_group_id": getattr(order, "cart_group_id", None),
+        "courier_provider": getattr(order, "courier_provider", "Shipbubble / Kwik") or "Shipbubble / Kwik",
+        "courier_tracking_url": getattr(order, "courier_tracking_url", None) or (f"https://track.reva-marketplace.com.ng/{getattr(order, 'tracking_code', '')}" if getattr(order, "tracking_code", None) else None),
+        "tracking_code": getattr(order, "tracking_code", None),
+        "delivery_fee_ngn": float(getattr(order, "delivery_fee_ngn", 0) or 0),
+        "dispatch_status": getattr(order, "dispatch_status", "pending") or "pending",
         "status": order.status.value,
         "collection_arranged_by": order.collection_arranged_by.value if order.collection_arranged_by else None,
         "collection_notes": order.collection_notes,
@@ -357,12 +363,14 @@ async def confirm_delivery(
     seller = seller_result.scalar_one_or_none()
 
     # Automatically send 94% of the payment to the seller via Paystack
+    recipient_code = getattr(seller, "paystack_recipient_code", None) if seller else None
     payout_result = await send_seller_payout(
         order_id=str(order.id),
         seller_amount_ngn=seller_proceeds,
         seller_email=seller.email or f"{seller.phone}@reva.placeholder" if seller else "seller@reva.placeholder",
         seller_name=seller.name if seller else "Valued Seller",
         seller_phone=seller.phone if seller else None,
+        recipient_code=recipient_code,
     )
     order.seller_payout_reference = payout_result.get("transfer_code") or f"tr_{str(order.id)[:8]}"
     order.seller_payout_status = "released"

@@ -82,7 +82,7 @@ class Order(Base):
         index=True,
     )
 
-    # Collection/delivery
+    # Collection/delivery & 3PL Logistics
     delivery_method = Column(String(50), nullable=True, default="self_pickup")
     buyer_phone = Column(String(50), nullable=True)
     buyer_delivery_address = Column(String(500), nullable=True)
@@ -91,6 +91,11 @@ class Order(Base):
     paystack_payment_url = Column(String(500), nullable=True)
     seller_payout_reference = Column(String(255), nullable=True)
     seller_payout_status = Column(String(50), nullable=True, default="pending")
+    cart_group_id = Column(String(100), nullable=True, index=True)
+    courier_provider = Column(String(50), nullable=True, default="Shipbubble / Kwik")
+    courier_tracking_url = Column(String(500), nullable=True)
+    delivery_fee_ngn = Column(Numeric(15, 2), nullable=True, default=Decimal("0.00"))
+    dispatch_status = Column(String(50), nullable=True, default="pending")
 
     collection_arranged_by = Column(
         Enum(CollectionArranger, native_enum=False),

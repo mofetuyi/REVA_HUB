@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, HTML
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.api import auth, listings, offers, orders, webhooks, reviews, admin, learn, gemini, compliance, staff, price_refs, internal
+from app.api import auth, listings, offers, orders, webhooks, reviews, admin, learn, gemini, compliance, staff, price_refs, internal, messages, payouts, logistics, cart
 
 # Configure logging
 logging.basicConfig(
@@ -431,6 +431,10 @@ app.include_router(auth.router)
 app.include_router(listings.router)
 app.include_router(offers.router)
 app.include_router(orders.router)
+app.include_router(cart.router)
+app.include_router(messages.router)
+app.include_router(payouts.router)
+app.include_router(logistics.router)
 app.include_router(webhooks.router)
 app.include_router(reviews.router)
 app.include_router(admin.router)

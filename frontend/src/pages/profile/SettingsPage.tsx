@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Copy, Check, Crown, Shield, User as UserIcon, ExternalLink, ArrowRightLeft } from 'lucide-react'
+import { Copy, Check, Crown, Shield, User as UserIcon, ExternalLink, ArrowRightLeft, Building2, CreditCard, CheckCircle2, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
@@ -16,6 +16,15 @@ export default function SettingsPage() {
   const { user, setUser, mode, switchMode } = useAuthStore()
   const [copied, setCopied] = useState(false)
 
+  // Bank payout state
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
+  const [selectedBankCode, setSelectedBankCode] = useState('')
+  const [accountNumber, setAccountNumber] = useState('')
+  const [resolvedAccountName, setResolvedAccountName] = useState('')
+  const [isResolving, setIsResolving] = useState(false)
+  const [isSavingBank, setIsSavingBank] = useState(false)
+  const [bankInfo, setBankInfo] = useState<any>(null)
+
   const { data: profile, isLoading } = useQuery<UserType>({
     queryKey: ['myProfile'],
     queryFn: async () => {
@@ -23,6 +32,80 @@ export default function SettingsPage() {
       return res.data
     },
   })
+
+  // Fetch Nigerian banks and existing payout account
+  useEffect(() => {
+    const loadBankData = async () => {
+      try {
+        const [banksRes, accountRes] = await Promise.all([
+          api.get('/payouts/banks'),
+          api.get('/payouts/my-bank-account'),
+        ])
+        if (banksRes.data?.banks) {
+          setBanks(banksRes.data.banks)
+          if (banksRes.data.banks.length > 0 && !selectedBankCode) {
+            setSelectedBankCode(banksRes.data.banks[0].code)
+          }
+        }
+        if (accountRes.data) {
+          setBankInfo(accountRes.data)
+          if (accountRes.data.bank_code) setSelectedBankCode(accountRes.data.bank_code)
+          if (accountRes.data.account_number) setAccountNumber(accountRes.data.account_number)
+          if (accountRes.data.account_name) setResolvedAccountName(accountRes.data.account_name)
+        }
+      } catch (err) {
+        console.warn('Could not load bank data:', err)
+      }
+    }
+    loadBankData()
+  }, [])
+
+  const handleResolveAccount = async () => {
+    if (!accountNumber || accountNumber.length !== 10) {
+      toast.error('Please enter a valid 10-digit NUBAN account number')
+      return
+    }
+    setIsResolving(true)
+    try {
+      const res = await api.post('/payouts/resolve', {
+        account_number: accountNumber,
+        bank_code: selectedBankCode,
+      })
+      if (res.data?.account_name) {
+        setResolvedAccountName(res.data.account_name)
+        toast.success(`Account verified: ${res.data.account_name}`)
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Could not verify account details with bank')
+    } finally {
+      setIsResolving(false)
+    }
+  }
+
+  const handleSaveBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resolvedAccountName) {
+      toast.error('Please verify your account details before saving')
+      return
+    }
+    const matchedBank = banks.find((b) => b.code === selectedBankCode)
+    setIsSavingBank(true)
+    try {
+      const res = await api.post('/payouts/save-bank-account', {
+        bank_name: matchedBank?.name || 'Commercial Bank',
+        bank_code: selectedBankCode,
+        account_number: accountNumber,
+        account_name: resolvedAccountName,
+      })
+      toast.success(res.data.message || 'Bank account saved for automated Paystack payouts!')
+      setBankInfo(res.data)
+      queryClient.invalidateQueries({ queryKey: ['myProfile'] })
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Failed to save bank account')
+    } finally {
+      setIsSavingBank(false)
+    }
+  }
 
   const [formData, setFormData] = useState({
     name: '',
@@ -207,6 +290,99 @@ export default function SettingsPage() {
           <div className="flex justify-end pt-2">
             <Button type="submit" isLoading={updateProfileMutation.isPending}>
               Save Profile Changes
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* Seller Bank Account & Automated Paystack Payouts */}
+      <div className="bg-white p-6 rounded-2xl border border-cream-200 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cream-200 pb-3">
+          <div>
+            <h2 className="font-display font-bold text-base text-dark-900 flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-[#062E12]" />
+              Seller Bank Account (Paystack Automated Payouts)
+            </h2>
+            <p className="text-xs text-dark-500 mt-1">
+              94% escrow proceeds are transferred directly to this bank account the instant the buyer confirms delivery.
+            </p>
+          </div>
+          {bankInfo?.is_configured && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full text-xs font-bold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Auto-Payout Active
+            </span>
+          )}
+        </div>
+
+        <form onSubmit={handleSaveBankAccount} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-dark-800 mb-1">Select Bank</label>
+              <select
+                value={selectedBankCode}
+                onChange={(e) => {
+                  setSelectedBankCode(e.target.value)
+                  setResolvedAccountName('')
+                }}
+                className="w-full text-xs border border-cream-300 rounded-xl px-3 py-2.5 bg-cream-50 focus:ring-2 focus:ring-gold-500"
+              >
+                {banks.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-dark-800 mb-1">10-Digit NUBAN Account Number</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={10}
+                  placeholder="e.g. 0123456789"
+                  value={accountNumber}
+                  onChange={(e) => {
+                    setAccountNumber(e.target.value.replace(/\D/g, ''))
+                    setResolvedAccountName('')
+                  }}
+                  className="flex-1 text-xs border border-cream-300 rounded-xl px-3 py-2 bg-cream-50 focus:ring-2 focus:ring-gold-500 font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleResolveAccount}
+                  isLoading={isResolving}
+                  disabled={accountNumber.length !== 10}
+                >
+                  Verify
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {resolvedAccountName && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>
+                  Verified Account Name: <strong className="text-emerald-950 uppercase">{resolvedAccountName}</strong>
+                </span>
+              </div>
+              <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-100 px-2 py-0.5 rounded">
+                NUBAN Match
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button
+              type="submit"
+              isLoading={isSavingBank}
+              disabled={!resolvedAccountName || isSavingBank}
+            >
+              Save Bank for Auto-Payouts
             </Button>
           </div>
         </form>

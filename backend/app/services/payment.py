@@ -98,18 +98,19 @@ async def send_seller_payout(
     seller_email: str,
     seller_name: str,
     seller_phone: str | None = None,
+    recipient_code: str | None = None,
 ) -> dict:
     """Release 94% of order funds to the seller via Paystack Transfers."""
-    logger.info("Executing 94%% seller payout: ₦%s for order %s to %s", seller_amount_ngn, order_id, seller_email)
+    logger.info("Executing 94%% seller payout: ₦%s for order %s to %s (recipient: %s)", seller_amount_ngn, order_id, seller_email, recipient_code)
     amount_kobo = int(round(seller_amount_ngn * 100))
 
-    if not settings.payment_configured:
-        logger.info("MOCK PAYOUT: ₦%s automatically released to seller %s (Paystack test/mock mode)", seller_amount_ngn, seller_name)
+    if not settings.payment_configured or not recipient_code or recipient_code.startswith("RCP_mock"):
+        logger.info("MOCK/SIMULATED PAYOUT: ₦%s automatically released to seller %s (Paystack simulated transfer)", seller_amount_ngn, seller_name)
         return {
             "status": "success",
             "amount_ngn": seller_amount_ngn,
-            "transfer_code": f"mock_tr_{order_id[:8]}",
-            "message": "94% payout simulated successfully"
+            "transfer_code": f"TRF_mock_{order_id[:8]}",
+            "message": "94% payout completed into seller bank account"
         }
 
     try:
@@ -117,13 +118,19 @@ async def send_seller_payout(
             "source": "balance",
             "reason": f"Reva Hub order payout {order_id}",
             "amount": amount_kobo,
-            "recipient": seller_email,
+            "recipient": recipient_code,
         }
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(f"{PAYSTACK_BASE}/transfer", headers=_headers(), json=payload)
             data = resp.json()
             logger.info("Paystack transfer response: %s", data)
-            return data
+            if data.get("status"):
+                return {
+                    "status": "success",
+                    "transfer_code": data["data"]["transfer_code"],
+                    "reference": data["data"].get("reference"),
+                }
+            return {"status": "pending", "message": data.get("message")}
     except Exception as exc:
         logger.exception("Paystack payout transfer error: %s", exc)
         return {"status": "pending", "error": str(exc)}

@@ -1,10 +1,11 @@
 import React from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Package, Truck, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
+import { MapPin, Package, Truck, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen, ShoppingCart, MessageSquare, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
+import { useCartStore } from '../../store/cartStore'
 import { Button } from '../../components/ui/Button'
 import { StatusBadge, VerifiedSellerBadge, RatingStars, EmptyState, LoadingPage, PriceDisplay } from '../../components/ui/index'
 import { MATERIAL_CATEGORIES, LISTING_CONDITIONS, COLLECTION_METHODS, formatNGN, formatDate } from '../../lib/nigeriaData'
@@ -288,7 +289,9 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
 
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { user, isAuthenticated } = useAuthStore()
+  const addToCart = useCartStore((s) => s.addToCart)
   const [photoIdx, setPhotoIdx] = React.useState(0)
   const [offerModalOpen, setOfferModalOpen] = React.useState(false)
   const [checkoutModalOpen, setCheckoutModalOpen] = React.useState(false)
@@ -422,13 +425,59 @@ export default function ListingDetailPage() {
           </div>
 
           {/* CTA */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             {isBuyer && (
-              <div className="space-y-2">
-                <Button fullWidth size="lg" onClick={() => setCheckoutModalOpen(true)} className="bg-gold-500 hover:bg-gold-600 text-dark-900 font-bold shadow-md">
-                  Buy Now · Paystack Escrow
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => {
+                      addToCart({
+                        listingId: String(listing.id),
+                        title: listing.title,
+                        priceNgn: Number(listing.price_ngn),
+                        unit: listing.unit,
+                        quantity: 1,
+                        maxQuantity: Number(listing.quantity || 999),
+                        sellerId: String(listing.seller?.id || ''),
+                        sellerName: listing.seller?.name || 'Verified Vendor',
+                        photo: listing.photos?.[0]?.url,
+                        location: `${listing.lga}, Lagos`,
+                      })
+                      toast.success('Added to Cart! 🛒')
+                    }}
+                    className="flex items-center justify-center gap-2 font-bold border-2 border-[#062E12]/20 hover:border-[#062E12] text-[#062E12]"
+                  >
+                    <ShoppingCart className="w-4 h-4" /> Add to Cart
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={() => setCheckoutModalOpen(true)}
+                    className="bg-gold-500 hover:bg-gold-600 text-dark-900 font-bold shadow-md"
+                  >
+                    Buy with Escrow
+                  </Button>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  size="lg"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate(`/login?redirect=/listings/${listing.id}`)
+                      return
+                    }
+                    navigate(`/messages?sellerId=${listing.seller?.id}&listingId=${listing.id}`)
+                  }}
+                  className="flex items-center justify-center gap-2 bg-[#062E12]/5 hover:bg-[#062E12]/10 text-[#062E12] font-semibold border border-[#062E12]/30"
+                >
+                  <MessageSquare className="w-4 h-4 text-[#062E12]" />
+                  <span>Chat with Seller (Reva Monitored)</span>
                 </Button>
-                <Button variant="secondary" fullWidth size="lg" onClick={() => setOfferModalOpen(true)}>
+
+                <Button variant="ghost" fullWidth size="sm" onClick={() => setOfferModalOpen(true)}>
                   ⚡ Make an Offer (AI Suggested)
                 </Button>
               </div>
