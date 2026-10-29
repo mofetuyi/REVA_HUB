@@ -724,8 +724,12 @@ async def whatsapp_send_otp(
 
     await redis.setex(throttle_key, 30, "1")
     success, otp, msg, direct_link = await send_whatsapp_otp(clean_phone, redis)
+
+    if not success:
+        logger.warning("WhatsApp OTP delivery failed for %s: %s", clean_phone, msg)
+
     return {
-        "success": True,
+        "success": success,
         "message": msg,
         "phone": clean_phone,
         "whatsapp_link": direct_link,

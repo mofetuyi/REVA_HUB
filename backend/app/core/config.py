@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     # ── WhatsApp Verification ─────────────────────────────────────────────────
     WHATSAPP_API_KEY: Optional[str] = "sk_hXOvkP3W3U-msS9u7st6jA"
-    WHATSAPP_INSTANCE_ID: Optional[str] = None
+    WHATSAPP_INSTANCE_ID: Optional[str] = "ins_7lOt9mloPIEf"
     WHATSAPP_PROVIDER: str = "wsapi"
     WHATSAPP_SENDER_PHONE: str = "2347076630396"
     WHATSAPP_GATEWAY_URL: Optional[str] = "https://api.wsapi.chat/messages/text"

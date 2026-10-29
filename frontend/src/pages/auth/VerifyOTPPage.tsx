@@ -48,7 +48,11 @@ export default function VerifyOTPPage() {
   const whatsappMutation = useMutation({
     mutationFn: () => api.post('/auth/whatsapp/send-otp', { phone }),
     onSuccess: (res) => {
-      toast.success('💬 WhatsApp verification code sent!')
+      if (res.data?.success) {
+        toast.success('💬 WhatsApp verification code sent!')
+      } else {
+        toast.error(res.data?.message || 'WhatsApp delivery failed. Try again.')
+      }
       if (res.data?.whatsapp_link) {
         setWhatsappLink(res.data.whatsapp_link)
       }

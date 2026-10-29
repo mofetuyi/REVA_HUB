@@ -51,21 +51,20 @@ async def send_whatsapp_otp(
     api_key = settings.WHATSAPP_API_KEY
     instance_id = settings.WHATSAPP_INSTANCE_ID
 
-    if not api_key:
-        logger.warning("WhatsApp API key not configured. Generated local OTP: %s for %s", otp, clean_phone)
-        return True, otp, "WhatsApp verification link generated", direct_whatsapp_link
+    if not api_key or not instance_id:
+        logger.warning("WhatsApp API key or Instance ID not configured. Generated local OTP: %s for %s", otp, clean_phone)
+        return False, otp, "WhatsApp not configured — API key or Instance ID missing", direct_whatsapp_link
 
     delivered = False
-    logger.info("Dispatching WhatsApp OTP to %s via WSAPI (key: %s...)", clean_phone, api_key[:6])
+    logger.info("Dispatching WhatsApp OTP to %s via WSAPI (key: %s..., instance: %s)", clean_phone, api_key[:6], instance_id)
 
     # Call WSAPI REST endpoint (https://api.wsapi.chat/messages/text)
     headers = {
         "x-api-key": api_key,
+        "x-instance-id": instance_id,
         "Content-Type": "application/json",
         "User-Agent": "RevaHub/1.0",
     }
-    if instance_id:
-        headers["x-instance-id"] = instance_id
 
     try:
         url = settings.WHATSAPP_GATEWAY_URL or "https://api.wsapi.chat/messages/text"
@@ -73,15 +72,17 @@ async def send_whatsapp_otp(
             "to": clean_phone,
             "text": msg_text,
         }
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(url, headers=headers, json=payload)
             if resp.status_code in (200, 201, 202):
                 delivered = True
                 logger.info("WSAPI WhatsApp message dispatched successfully to %s (%s)", clean_phone, resp.status_code)
             else:
                 logger.warning("WSAPI responded with status %s: %s", resp.status_code, resp.text)
+                return False, otp, f"WhatsApp delivery failed (status {resp.status_code})", direct_whatsapp_link
     except Exception as exc:
         logger.warning("WSAPI dispatch attempt error: %s", exc)
+        return False, otp, f"WhatsApp delivery error: {exc}", direct_whatsapp_link
 
     return True, otp, "Verification code sent to WhatsApp", direct_whatsapp_link
 
