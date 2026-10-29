@@ -4,6 +4,7 @@ import { Header } from './Header'
 import { Toaster } from 'react-hot-toast'
 import { RevaLogoIcon } from '../ui/RevaLogo'
 import { Lock } from 'lucide-react'
+import ReviChatWidget from '../ai/ReviChatWidget'
 
 export function Layout() {
   return (
@@ -12,6 +13,7 @@ export function Layout() {
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Outlet />
       </main>
+      <ReviChatWidget />
       <footer className="bg-brandGreen-950 text-white pt-10 pb-6 mt-auto border-t border-gold-500/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-brandGreen-800">

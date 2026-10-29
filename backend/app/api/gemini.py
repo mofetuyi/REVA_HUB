@@ -1,4 +1,4 @@
-"""Gemini AI assistant API endpoint."""
+"""Gemini AI assistant API endpoint for Revi."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,45 +10,64 @@ from app.core.deps import get_optional_user
 from app.models.user import User
 from app.services.gemini_service import chat
 
-router = APIRouter(prefix="/ai", tags=["ai"])
+router = APIRouter(tags=["ai"])
 
 
 class ChatMessage(BaseModel):
-    role: str  # "user" or "model"
-    text: str
+    role: str  # "user" or "model" / "assistant"
+    text: Optional[str] = None
+    content: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: Optional[str] = None
+    prompt: Optional[str] = None
     history: Optional[List[ChatMessage]] = None
     context_listing_id: Optional[str] = None
     context_tutorial_slug: Optional[str] = None
 
 
-@router.post("/chat")
-async def ai_chat(
-    req: ChatRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_user),
-):
-    """Reva AI assistant chat endpoint.
-
-    The assistant uses real listing and tutorial data from the database.
-    It cannot invent listings, prices, policies, or certifications.
-
-    GEMINI_API_KEY must be configured server-side. This key is NEVER
-    exposed to the frontend.
-    """
-    if not req.message or len(req.message.strip()) == 0:
+async def _handle_chat(req: ChatRequest, db: AsyncSession, current_user: Optional[User]):
+    user_text = (req.message or req.prompt or "").strip()
+    if not user_text:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
-    if len(req.message) > 2000:
+    if len(user_text) > 2000:
         raise HTTPException(status_code=400, detail="Message too long (max 2000 chars)")
 
     # Build history for Gemini
     history = []
     if req.history:
-        for msg in req.history[-10:]:  # limit context window
-            history.append({"role": msg.role, "parts": [msg.text]})
+        for msg in req.history[-10:]:
+            msg_role = "user" if msg.role == "user" else "model"
+            content = msg.text or msg.content or ""
+            if content:
+                history.append({"role": msg_role, "parts": [content]})
 
-    response = await chat(req.message, db, history if history else None)
-    return {"response": response, "disclaimer": "Reva AI helps you navigate the platform. Always verify important information directly."}
+    response_text = await chat(user_text, db, history if history else None)
+    return {
+        "response": response_text,
+        "message": response_text,
+        "assistant": "Revi",
+        "name": "Revi",
+        "disclaimer": "Revi is Reva Hub's circular economy assistant. Always verify important details directly.",
+    }
+
+
+@router.post("/ai/chat")
+async def ai_chat(
+    req: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    """Revi AI assistant chat endpoint (/ai/chat)."""
+    return await _handle_chat(req, db, current_user)
+
+
+@router.post("/gemini/chat")
+async def gemini_chat(
+    req: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    """Revi AI assistant chat endpoint fallback (/gemini/chat)."""
+    return await _handle_chat(req, db, current_user)

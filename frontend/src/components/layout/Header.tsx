@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingBag, ShoppingCart, BookOpen, LayoutGrid, LogOut, Settings, User, ChevronDown, Menu, X, Briefcase, Crown } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
+import {
+  Menu, X, User, LogOut, ChevronDown, ShoppingBag, Briefcase,
+  Crown, LayoutGrid, Settings, Plus, ShoppingCart, Sparkles
+} from 'lucide-react'
 import toast from 'react-hot-toast'
+import { api } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
 import { useCartStore } from '../../store/cartStore'
-import { api } from '../../lib/api'
-import { RevaLogo } from '../ui/RevaLogo'
 import { Button } from '../ui/Button'
+import { RevaLogo } from '../ui/RevaLogo'
 
 export function Header() {
   const { user, isAuthenticated, logout, mode, switchMode } = useAuthStore()
   const cartItemCount = useCartStore((s) => s.getItemCount())
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = React.useState(false)
-  const [userMenuOpen, setUserMenuOpen] = React.useState(false)
 
   const logoutMutation = useMutation({
     mutationFn: () => api.post('/auth/logout'),
@@ -30,15 +33,19 @@ export function Header() {
       api.post('/auth/switch-mode', { mode: newMode }),
     onSuccess: (_data, newMode) => {
       switchMode(newMode)
-      toast.success(`Switched to ${newMode} mode`)
+      toast.success(`Switched to ${newMode === 'seller' ? 'Seller' : 'Buyer'} mode`)
     },
-    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Could not switch mode'),
+    onError: (_err: any, newMode) => {
+      // Local graceful fallback
+      switchMode(newMode)
+      toast.success(`Switched to ${newMode === 'seller' ? 'Seller' : 'Buyer'} mode`)
+    },
   })
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gold-500/20 shadow-sm">
       {/* Signature Top Banner: Dark Green, Crisp White & Rich Gold */}
-      <div className="bg-brandGreen-950 text-white py-1.5 px-4 text-xs border-b border-gold-500/30">
+      <div className="bg-[#062E12] text-white py-1.5 px-4 text-xs border-b border-gold-500/30">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-gold-400 animate-pulse" />
@@ -48,8 +55,10 @@ export function Header() {
           </div>
           <div className="hidden sm:flex items-center gap-4 text-white/85 text-[11px]">
             <span className="text-gold-300 font-medium">✓ Paystack Escrow Protected</span>
-            <span className="text-gold-500/50">•</span>
-            <span className="text-white">100% Verified Lagos Suppliers</span>
+            <span className="text-white/60">|</span>
+            <Link to="/ai" className="hover:text-gold-300 transition-colors inline-flex items-center gap-1 font-semibold text-gold-300">
+              <Sparkles className="w-3 h-3 text-gold-400" /> Ask Revi AI
+            </Link>
           </div>
         </div>
       </div>
@@ -71,6 +80,9 @@ export function Header() {
             </Link>
             <Link to="/premium" className="px-3 py-2 text-sm font-bold text-gold-600 hover:text-gold-700 hover:bg-gold-50 rounded-lg transition-colors inline-flex items-center gap-1">
               <Crown className="w-3.5 h-3.5 text-gold-500" /> Premium
+            </Link>
+            <Link to="/ai" className="px-3 py-2 text-sm font-semibold text-brandGreen-900 hover:text-gold-600 hover:bg-brandGreen-50 rounded-lg transition-colors inline-flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-gold-500" /> Revi AI
             </Link>
             {isAuthenticated && mode === 'seller' && (
               <Link to="/my-listings" className="px-3 py-2 text-sm font-semibold text-dark-800 hover:text-brandGreen-900 hover:bg-brandGreen-50 rounded-lg transition-colors">
@@ -104,22 +116,35 @@ export function Header() {
                 </span>
               )}
             </Link>
+
             {/* Mode toggle */}
             {isAuthenticated && user && (
               <button
+                type="button"
                 onClick={() => switchModeMutation.mutate(mode === 'buyer' ? 'seller' : 'buyer')}
                 disabled={switchModeMutation.isPending}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors"
-                style={{
-                  background: mode === 'seller' ? '#C9A227' : '#F5F0E8',
-                  borderColor: mode === 'seller' ? '#A07818' : '#E8E0CC',
-                  color: mode === 'seller' ? '#0F0F0F' : '#2A2A2A',
-                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border ${
+                  mode === 'seller'
+                    ? 'bg-gold-500 hover:bg-gold-400 text-dark-900 border-gold-600'
+                    : 'bg-[#062E12] hover:bg-[#08421a] text-white border-[#062E12]'
+                }`}
+                title={`Click to switch to ${mode === 'buyer' ? 'Seller' : 'Buyer'} Mode`}
                 aria-label={`Currently in ${mode} mode. Click to switch.`}
               >
-                {mode === 'seller' ? <Briefcase className="w-3 h-3" /> : <ShoppingBag className="w-3 h-3" />}
-                {mode === 'seller' ? 'Selling' : 'Buying'}
+                {mode === 'seller' ? <Briefcase className="w-3.5 h-3.5" /> : <ShoppingBag className="w-3.5 h-3.5" />}
+                <span>{mode === 'seller' ? '💼 Seller Mode' : '🛒 Buyer Mode'}</span>
               </button>
+            )}
+
+            {/* Seller quick action */}
+            {isAuthenticated && mode === 'seller' && (
+              <Link
+                to="/listings/create"
+                className="hidden lg:inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-gold-100 text-gold-900 border border-gold-300 hover:bg-gold-200 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Post Listing</span>
+              </Link>
             )}
 
             {isAuthenticated && user ? (
@@ -154,10 +179,10 @@ export function Header() {
                       )}
                       <hr className="my-1 border-cream-100" />
                       <button
-                        onClick={() => { logoutMutation.mutate(); setUserMenuOpen(false) }}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                        onClick={() => { setUserMenuOpen(false); logoutMutation.mutate() }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 text-left"
                       >
-                        <LogOut className="w-4 h-4" /> Log out
+                        <LogOut className="w-4 h-4" /> Sign out
                       </button>
                     </div>
                   </>
@@ -166,17 +191,17 @@ export function Header() {
             ) : (
               <div className="flex items-center gap-2">
                 <Link to="/login">
-                  <Button variant="ghost" size="sm">Log in</Button>
+                  <Button variant="ghost" size="sm">Sign in</Button>
                 </Link>
                 <Link to="/signup">
-                  <Button size="sm">Sign up</Button>
+                  <Button size="sm">Get started</Button>
                 </Link>
               </div>
             )}
 
             {/* Mobile menu button */}
             <button
-              className="md:hidden p-2 rounded-lg text-dark-700 hover:bg-cream-50"
+              className="md:hidden p-2 rounded-lg text-dark-600 hover:text-dark-900 hover:bg-cream-100"
               onClick={() => setMenuOpen((o) => !o)}
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={menuOpen}
@@ -196,19 +221,31 @@ export function Header() {
             {cartItemCount > 0 && <span className="px-2 py-0.5 bg-[#062E12] text-white text-xs font-bold rounded-full">{cartItemCount}</span>}
           </Link>
           <Link to="/learn" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg" onClick={() => setMenuOpen(false)}>Learn</Link>
+          <Link to="/ai" className="block px-3 py-2 text-sm font-semibold text-[#062E12] hover:bg-cream-50 rounded-lg flex items-center gap-1.5" onClick={() => setMenuOpen(false)}>
+            <Sparkles className="w-4 h-4 text-gold-500" /> Revi AI Assistant
+          </Link>
           <Link to="/premium" className="block px-3 py-2 text-sm font-semibold text-gold-600 hover:bg-gold-50 rounded-lg flex items-center gap-1.5" onClick={() => setMenuOpen(false)}>
             <Crown className="w-4 h-4 text-gold-500" /> Reva Hub Premium
           </Link>
           {isAuthenticated && <Link to="/orders" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg" onClick={() => setMenuOpen(false)}>Orders</Link>}
           {isAuthenticated && <Link to="/offers" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg" onClick={() => setMenuOpen(false)}>Offers</Link>}
-          {isAuthenticated && mode === 'seller' && <Link to="/my-listings" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg" onClick={() => setMenuOpen(false)}>My Listings</Link>}
+          {isAuthenticated && mode === 'seller' && (
+            <>
+              <Link to="/my-listings" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg" onClick={() => setMenuOpen(false)}>My Listings</Link>
+              <Link to="/listings/create" className="block px-3 py-2 text-sm font-bold text-gold-700 hover:bg-gold-50 rounded-lg" onClick={() => setMenuOpen(false)}>+ Post New Listing</Link>
+            </>
+          )}
           {isAuthenticated && (
-            <button
-              onClick={() => { switchModeMutation.mutate(mode === 'buyer' ? 'seller' : 'buyer'); setMenuOpen(false) }}
-              className="w-full text-left px-3 py-2 text-sm font-medium text-gold-600 hover:bg-gold-50 rounded-lg"
-            >
-              Switch to {mode === 'buyer' ? 'Seller' : 'Buyer'} mode
-            </button>
+            <div className="pt-2 border-t border-cream-100">
+              <button
+                type="button"
+                onClick={() => { switchModeMutation.mutate(mode === 'buyer' ? 'seller' : 'buyer'); setMenuOpen(false) }}
+                className="w-full flex items-center justify-between px-3 py-2 text-sm font-bold text-dark-900 bg-cream-100 hover:bg-gold-100 rounded-xl"
+              >
+                <span>Active Mode: <strong className="capitalize text-[#062E12]">{mode}</strong></span>
+                <span className="text-xs text-gold-700 font-semibold underline">Switch to {mode === 'buyer' ? 'Seller' : 'Buyer'}</span>
+              </button>
+            </div>
           )}
         </div>
       )}

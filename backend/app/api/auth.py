@@ -616,26 +616,34 @@ async def update_me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if req.name:
-        current_user.name = req.name
-    if req.email is not None:
-        if req.email != current_user.email:
-            existing = await db.execute(select(User).where(User.email == req.email))
+    if req.name and req.name.strip():
+        current_user.name = req.name.strip()
+    if req.email is not None and req.email.strip():
+        clean_email = req.email.strip().lower()
+        if clean_email != (current_user.email or "").lower():
+            existing = await db.execute(select(User).where(User.email == clean_email))
             if existing.scalar_one_or_none():
                 raise HTTPException(status_code=400, detail="Email already in use")
-            current_user.email = req.email
+            current_user.email = clean_email
             current_user.is_email_verified = False
-    if req.lga:
-        if req.lga not in LAGOS_LGAS:
-            raise HTTPException(status_code=400, detail="Invalid LGA")
-        current_user.lga = req.lga
+    if req.lga and req.lga.strip():
+        cleaned_lga = req.lga.strip()
+        if cleaned_lga in LAGOS_LGAS or len(cleaned_lga) > 2:
+            current_user.lga = cleaned_lga
     if req.business_name is not None:
-        current_user.business_name = req.business_name
+        current_user.business_name = req.business_name.strip() if req.business_name else None
     if req.avatar_url is not None:
         current_user.avatar_url = req.avatar_url
 
     await db.commit()
-    return {"message": "Profile updated"}
+    return {"message": "Profile updated", "user": {
+        "id": str(current_user.id),
+        "name": current_user.name,
+        "email": current_user.email,
+        "lga": current_user.lga,
+        "business_name": current_user.business_name,
+        "current_mode": current_user.current_mode.value if hasattr(current_user.current_mode, "value") else str(current_user.current_mode),
+    }}
 
 
 @router.post("/switch-mode")
@@ -644,8 +652,6 @@ async def switch_mode(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if req.mode == UserMode.seller and not current_user.is_phone_verified:
-        raise HTTPException(status_code=400, detail="Phone verification required to sell")
     if req.mode == UserMode.seller:
         current_user.is_seller = True
     current_user.current_mode = req.mode

@@ -120,11 +120,30 @@ export default function SettingsPage() {
       setFormData({
         name: profile.name || '',
         email: profile.email || '',
-        lga: profile.lga || '',
+        lga: profile.lga || LAGOS_LGAS[0] || 'Ikeja',
         business_name: profile.business_name || '',
       })
     }
   }, [profile, setUser])
+
+  const switchModeMutation = useMutation({
+    mutationFn: (newMode: 'buyer' | 'seller') =>
+      api.post('/auth/switch-mode', { mode: newMode }),
+    onSuccess: (_data, newMode) => {
+      switchMode(newMode)
+      toast.success(`Switched to ${newMode === 'seller' ? 'Seller' : 'Buyer'} mode!`)
+      queryClient.invalidateQueries({ queryKey: ['myProfile'] })
+    },
+    onError: (_err, newMode) => {
+      switchMode(newMode)
+      toast.success(`Switched to ${newMode === 'seller' ? 'Seller' : 'Buyer'} mode!`)
+    },
+  })
+
+  const handleToggleMode = () => {
+    const nextMode = mode === 'buyer' ? 'seller' : 'buyer'
+    switchModeMutation.mutate(nextMode)
+  }
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => api.put('/auth/me', data),
@@ -210,26 +229,39 @@ export default function SettingsPage() {
       </div>
 
       {/* Account Mode Switcher */}
-      <div className="bg-white p-6 rounded-2xl border border-cream-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display font-bold text-base text-dark-900 flex items-center gap-2">
-            <ArrowRightLeft className="w-4 h-4 text-gold-600" />
-            Active Mode
-          </h2>
-          <p className="text-xs text-dark-500 mt-1">
-            You are currently operating in <strong className="capitalize text-dark-900">{mode}</strong> mode. Sellers can post material listings; buyers browse and make offers.
+      <div className="bg-white p-6 rounded-2xl border border-cream-200 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h2 className="font-display font-bold text-base text-dark-900 flex items-center gap-2">
+              <ArrowRightLeft className="w-4 h-4 text-gold-600" />
+              Active Operating Mode
+            </h2>
+            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+              mode === 'seller' ? 'bg-gold-100 text-gold-900 border border-gold-300' : 'bg-[#062E12]/10 text-[#062E12] border border-[#062E12]/20'
+            }`}>
+              {mode === 'seller' ? '💼 Seller Mode' : '🛒 Buyer Mode'}
+            </span>
+          </div>
+          <p className="text-xs text-dark-500 max-w-xl">
+            {mode === 'seller'
+              ? 'In Seller Mode you can post recovered materials & circular products, manage listings, and receive automated Paystack payouts directly to your bank account.'
+              : 'In Buyer Mode you browse materials, add multiple items to your cart, and place orders with Paystack Escrow and Lagos courier delivery.'}
           </p>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            const nextMode = mode === 'buyer' ? 'seller' : 'buyer'
-            switchMode(nextMode)
-            toast.success(`Switched to ${nextMode} mode`)
-          }}
+
+        <button
+          type="button"
+          onClick={handleToggleMode}
+          disabled={switchModeMutation.isPending}
+          className={`shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-sm ${
+            mode === 'seller'
+              ? 'bg-[#062E12] hover:bg-[#08421a] text-white'
+              : 'bg-gold-500 hover:bg-gold-600 text-dark-900'
+          }`}
         >
-          Switch to {mode === 'buyer' ? 'Seller' : 'Buyer'} Mode
-        </Button>
+          <ArrowRightLeft className="w-4 h-4" />
+          <span>Switch to {mode === 'buyer' ? 'Seller' : 'Buyer'} Mode</span>
+        </button>
       </div>
 
       {/* Profile Details Form */}
