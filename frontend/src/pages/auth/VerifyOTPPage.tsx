@@ -11,9 +11,11 @@ export default function VerifyOTPPage() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
   const phone = (location.state as { phone?: string })?.phone || ''
+  const initialWhatsappLink = (location.state as { whatsapp_link?: string })?.whatsapp_link || null
   const [otp, setOtp] = React.useState(['', '', '', '', '', ''])
   const [resendCooldown, setResendCooldown] = React.useState(60)
   const inputRefs = React.useRef<Array<HTMLInputElement | null>>([])
+  const [whatsappLink, setWhatsappLink] = React.useState<string | null>(initialWhatsappLink)
 
   React.useEffect(() => {
     inputRefs.current[0]?.focus()
@@ -42,8 +44,6 @@ export default function VerifyOTPPage() {
       inputRefs.current[0]?.focus()
     },
   })
-
-  const [whatsappLink, setWhatsappLink] = React.useState<string | null>(null)
 
   const whatsappMutation = useMutation({
     mutationFn: () => api.post('/auth/whatsapp/send-otp', { phone }),

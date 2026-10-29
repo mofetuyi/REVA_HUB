@@ -286,9 +286,9 @@ async def signup(
         cac_number=req.cac_number,
         is_buyer=True,
         is_seller=False,
-        is_phone_verified=True,
+        is_phone_verified=False,
         is_email_verified=True if req.email else False,
-        kyc_status=KYCStatus.verified,
+        kyc_status=KYCStatus.in_progress,
         current_mode=UserMode.buyer,
         policy_version_accepted=settings.CURRENT_POLICY_VERSION,
         policy_accepted_at=datetime.now(timezone.utc),
@@ -302,37 +302,17 @@ async def signup(
     if req.email:
         background_tasks.add_task(send_welcome_email, user)
 
-    # Issue JWT tokens directly - no OTP or SMS verification code required
-    access_token = create_access_token(str(user.id), {"phone": user.phone})
-    refresh_token = create_refresh_token(str(user.id))
+    # Automatically dispatch WhatsApp verification OTP code via WSAPI
+    whatsapp_success, otp_code, whatsapp_msg, whatsapp_link = await send_whatsapp_otp(req.phone, redis)
 
     return {
-        "message": "Account created successfully.",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
+        "message": "Account created. Please enter the verification code sent to your WhatsApp.",
+        "requires_verification": True,
+        "phone": req.phone,
+        "whatsapp_link": whatsapp_link,
         "user_id": str(user.id),
         "reva_id": user.reva_id,
         "name": user.name,
-        "mode": "buyer",
-        "user": {
-            "id": str(user.id),
-            "phone": user.phone,
-            "name": user.name,
-            "email": user.email,
-            "state": user.state or "Lagos",
-            "lga": user.lga or "Lagos",
-            "account_type": user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type),
-            "business_name": user.business_name,
-            "is_buyer": user.is_buyer,
-            "is_seller": user.is_seller,
-            "is_admin": user.is_admin,
-            "is_staff": user.is_staff,
-            "is_premium": user.is_premium,
-            "is_phone_verified": True,
-            "kyc_status": "verified",
-            "reva_id": user.reva_id,
-        },
     }
 
 
@@ -342,17 +322,33 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis),
 ):
-    """Verify phone OTP with brute-force attempt limits and return JWT tokens."""
-    valid, err_msg = await verify_otp_code(req.phone, req.otp, redis)
+    """Verify phone OTP with brute-force attempt limits and return JWT tokens.
+    Checks normalized phone as well as raw phone representation.
+    """
+    clean_phone = normalize_phone_number(req.phone)
+    valid, err_msg = await verify_otp_code(clean_phone, req.otp.strip(), redis)
     if not valid:
-        raise HTTPException(status_code=400, detail=err_msg or "Invalid or expired OTP")
+        # Check raw or alternate phone key if stored with +
+        valid, err_msg = await verify_otp_code(req.phone.strip(), req.otp.strip(), redis)
 
-    result = await db.execute(select(User).where(User.phone == req.phone))
+    if not valid:
+        raise HTTPException(status_code=400, detail=err_msg or "Invalid or expired OTP code")
+
+    local_phone = "0" + clean_phone[3:] if clean_phone.startswith("234") else clean_phone
+    plus_phone = "+" + clean_phone if not clean_phone.startswith("+") else clean_phone
+
+    result = await db.execute(
+        select(User).where(
+            (User.phone == clean_phone) | (User.phone == req.phone.strip()) | (User.phone == local_phone) | (User.phone == plus_phone)
+        )
+    )
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_phone_verified = True
+    user.kyc_status = KYCStatus.verified
+    user.kyc_verified_at = datetime.now(timezone.utc)
     user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
 
@@ -363,13 +359,13 @@ async def verify_otp(
     except Exception as re_err:
         logger.warning("Could not store refresh token in redis: %s", re_err)
 
-    user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "seller")
+    user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "buyer")
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user_id=str(user.id),
-        name=user.name or "Platform Administrator",
+        name=user.name or "Reva Member",
         mode=user_mode_str,
     )
 
