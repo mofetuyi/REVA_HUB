@@ -36,7 +36,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       <div className="relative flex">
         {phonePrefix && (
           <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium">
-            +234
+            234
           </span>
         )}
         <input

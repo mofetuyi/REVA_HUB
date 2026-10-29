@@ -221,7 +221,7 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
                 type="tel"
                 value={buyerPhone}
                 onChange={(e) => setBuyerPhone(e.target.value)}
-                placeholder="+2348012345678"
+                placeholder="2348012345678"
                 className="w-full px-3 py-2 bg-white border border-cream-200 rounded-lg text-xs text-dark-900 focus:outline-none focus:ring-1 focus:ring-gold-500"
                 required
               />
