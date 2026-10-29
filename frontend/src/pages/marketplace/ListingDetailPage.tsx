@@ -385,7 +385,7 @@ export default function ListingDetailPage() {
                 </span>
               ) : (
                 <span className="badge bg-brandGreen-900 text-white font-bold border border-gold-500/30">
-                  🌿 Circular Material Hub
+                  🌿 Reva Hub
                 </span>
               )}
               <StatusBadge status={listing.condition} />

@@ -227,7 +227,7 @@ async def create_listing(
 
     group_val = req.product_group
     if not group_val or group_val not in ["circular_materials", "raw_materials", "upcycled_products"]:
-        if _val(req.category) in ["furniture", "fashion", "crafts", "circular_products"] or any(kw in req.title.lower() for kw in ["furniture", "journal", "tote bag", "refurbished", "bag", "stool", "chair", "desk"]):
+        if _val(req.category) in ["furniture", "fashion", "crafts"] or any(kw in req.title.lower() for kw in ["furniture", "journal", "tote bag", "refurbished", "bag", "stool", "chair", "desk"]):
             group_val = "upcycled_products"
         else:
             group_val = "circular_materials"

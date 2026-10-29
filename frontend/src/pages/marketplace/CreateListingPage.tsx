@@ -153,7 +153,7 @@ export default function CreateListingPage() {
               type="button"
               onClick={() => {
                 setValue('product_group', 'circular_materials')
-                setValue('category', 'organic_products')
+                setValue('category', 'circular_products')
               }}
               className={`p-3.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
                 productGroup !== 'upcycled_products'
@@ -162,7 +162,7 @@ export default function CreateListingPage() {
               }`}
             >
               <div className="font-bold text-dark-900 text-sm flex items-center gap-1.5">
-                <span>🌿</span> Circular Material Hub
+                <span>🌿</span> Reva Hub
               </div>
               <p className="text-xs text-dark-500 mt-1">Organic byproducts, rice husk, palm shells, plastics & recovered feedstocks</p>
             </button>

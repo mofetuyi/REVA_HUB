@@ -234,7 +234,7 @@ function HomePage() {
         {[
           {
             icon: '♻️',
-            title: 'Raw Materials Hub',
+            title: 'Reva Hub',
             desc: 'List and discover plastics, fabric, wood, cardboard, and other reusable materials. Arrange collection directly.',
             link: '/listings',
             cta: 'Browse Listings',

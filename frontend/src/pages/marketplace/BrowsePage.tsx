@@ -184,7 +184,7 @@ export default function BrowsePage() {
                   : 'text-dark-700 hover:text-dark-900 hover:bg-white/70'
               }`}
             >
-              <span>🌿</span> Circular Material Hub
+              <span>🌿</span> Reva Hub
             </button>
             <button
               onClick={() => {
@@ -207,7 +207,7 @@ export default function BrowsePage() {
           <div className="text-xs font-medium text-dark-500 px-1">
             {group === 'circular_materials' || group === 'raw_materials' ? (
               <span className="text-brandGreen-900">
-                🌿 <strong>Circular Material Hub</strong>: Organic products, rice husk, palm shells, PET flakes, timber & feedstocks
+                🌿 <strong>Reva Hub</strong>: Circular products, organic biomass, rice husk, palm shells, PET flakes & feedstocks
               </span>
             ) : group === 'upcycled_products' ? (
               <span className="text-gold-700">
@@ -229,7 +229,7 @@ export default function BrowsePage() {
                 : 'bg-white border-cream-200 text-dark-700 hover:border-gold-400'
             }`}
           >
-            All {group === 'circular_materials' || group === 'raw_materials' ? 'Raw Materials' : group === 'upcycled_products' ? 'Upcycled Goods' : 'Categories'}
+            All {group === 'circular_materials' || group === 'raw_materials' ? 'Circular Materials' : group === 'upcycled_products' ? 'Upcycled Goods' : 'Categories'}
           </button>
           {(group === 'circular_materials' || group === 'raw_materials'
             ? RAW_MATERIAL_CATEGORIES
