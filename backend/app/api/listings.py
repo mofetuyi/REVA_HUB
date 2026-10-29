@@ -98,6 +98,7 @@ def _listing_to_dict(listing: Listing, include_seller: bool = False) -> dict:
 
     d = {
         "id": str(listing.id),
+        "seller_id": str(listing.seller_id) if getattr(listing, "seller_id", None) else None,
         "slug": listing.slug,
         "category": _val(listing.category),
         "title": listing.title,
@@ -122,15 +123,15 @@ def _listing_to_dict(listing: Listing, include_seller: bool = False) -> dict:
         "created_at": listing.created_at.isoformat() if listing.created_at else None,
         "photos": photos_list,
     }
-    if include_seller and "seller" in listing.__dict__ and listing.seller:
-        s = listing.seller
+    s = getattr(listing, "seller", None)
+    if include_seller and s:
         d["seller"] = {
             "id": str(s.id),
             "name": s.name,
             "lga": s.lga,
             "average_rating": float(s.average_rating or 0),
             "review_count": s.review_count or 0,
-            "is_verified_seller": s.is_verified_seller,
+            "is_verified_seller": getattr(s, "is_verified_seller", False),
             "avatar_url": s.avatar_url,
             "member_since": s.created_at.isoformat() if s.created_at else None,
         }
@@ -357,7 +358,7 @@ async def get_listing(
 ):
     """Get listing detail by ID or slug."""
     # Try UUID first, then slug
-    q = select(Listing).options(selectinload(Listing.photos))
+    q = select(Listing).options(selectinload(Listing.photos), selectinload(Listing.seller))
     try:
         uuid.UUID(listing_id)
         q = q.where(Listing.id == listing_id)
@@ -369,6 +370,10 @@ async def get_listing(
 
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
+
+    if getattr(listing, "seller", None) is None and getattr(listing, "seller_id", None):
+        seller_res = await db.execute(select(User).where(User.id == listing.seller_id))
+        listing.seller = seller_res.scalar_one_or_none()
 
     # Only show active/approved to regular users (sellers see own listings)
     is_own = current_user and str(current_user.id) == str(listing.seller_id)

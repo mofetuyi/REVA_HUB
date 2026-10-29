@@ -460,23 +460,6 @@ export default function ListingDetailPage() {
                   </Button>
                 </div>
 
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  size="lg"
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      navigate(`/login?redirect=/listings/${listing.id}`)
-                      return
-                    }
-                    navigate(`/messages?sellerId=${listing.seller?.id}&listingId=${listing.id}`)
-                  }}
-                  className="flex items-center justify-center gap-2 bg-[#062E12]/5 hover:bg-[#062E12]/10 text-[#062E12] font-semibold border border-[#062E12]/30"
-                >
-                  <MessageSquare className="w-4 h-4 text-[#062E12]" />
-                  <span>Chat with Seller (Reva Monitored)</span>
-                </Button>
-
                 <Button variant="ghost" fullWidth size="sm" onClick={() => setOfferModalOpen(true)}>
                   ⚡ Make an Offer (AI Suggested)
                 </Button>

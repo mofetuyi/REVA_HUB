@@ -20,7 +20,6 @@ from app.models.listing_review import (
     ListingReviewResult, PriceReference,
     ReviewDecision, PriceAssessment, PriceRefStatus, Confidence,
 )
-from app.models.message import Conversation, Message
 
 __all__ = [
     "User", "AccountType", "UserMode", "KYCStatus",
@@ -30,7 +29,6 @@ __all__ = [
     "Order", "OrderEvent", "OrderStatus", "CollectionArranger", "VALID_ORDER_TRANSITIONS",
     "Dispute", "DisputeEvidence", "DisputeReason", "DisputeStatus",
     "Review", "ReviewType",
-    "Conversation", "Message",
     "Tutorial", "TutorialSection", "SkillPath", "SkillPathTutorial",
     "MaterialType", "Difficulty", "TutorialStatus", "AuthorType", "VideoPlatform",
     "TutorialProgress", "SkillPathProgress", "TutorialComment", "TutorialRating",

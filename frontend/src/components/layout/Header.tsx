@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingBag, ShoppingCart, MessageSquare, BookOpen, LayoutGrid, LogOut, Settings, User, ChevronDown, Menu, X, Briefcase, Crown } from 'lucide-react'
+import { ShoppingBag, ShoppingCart, BookOpen, LayoutGrid, LogOut, Settings, User, ChevronDown, Menu, X, Briefcase, Crown } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
@@ -15,29 +15,6 @@ export function Header() {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
-  const [unreadCount, setUnreadCount] = useState<number>(0)
-
-  // Poll unread messages count if logged in
-  useEffect(() => {
-    let isMounted = true
-    const checkUnread = async () => {
-      if (!isAuthenticated) return
-      try {
-        const res = await api.get('/messages/unread-count')
-        if (isMounted && res.data) {
-          setUnreadCount(res.data.unread_count || 0)
-        }
-      } catch (e) {
-        // quiet ignore
-      }
-    }
-    checkUnread()
-    const timer = setInterval(checkUnread, 6000)
-    return () => {
-      isMounted = false
-      clearInterval(timer)
-    }
-  }, [isAuthenticated])
 
   const logoutMutation = useMutation({
     mutationFn: () => api.post('/auth/logout'),
@@ -103,17 +80,6 @@ export function Header() {
             {isAuthenticated && (
               <Link to="/orders" className="px-3 py-2 text-sm font-semibold text-dark-800 hover:text-brandGreen-900 hover:bg-brandGreen-50 rounded-lg transition-colors">
                 Orders
-              </Link>
-            )}
-            {isAuthenticated && (
-              <Link to="/messages" className="px-3 py-2 text-sm font-semibold text-dark-800 hover:text-brandGreen-900 hover:bg-brandGreen-50 rounded-lg transition-colors relative flex items-center gap-1.5">
-                <MessageSquare className="w-4 h-4 text-[#062E12]" />
-                <span>Messages</span>
-                {unreadCount > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
-                    {unreadCount}
-                  </span>
-                )}
               </Link>
             )}
             {isAuthenticated && (
@@ -233,12 +199,6 @@ export function Header() {
           <Link to="/premium" className="block px-3 py-2 text-sm font-semibold text-gold-600 hover:bg-gold-50 rounded-lg flex items-center gap-1.5" onClick={() => setMenuOpen(false)}>
             <Crown className="w-4 h-4 text-gold-500" /> Reva Hub Premium
           </Link>
-          {isAuthenticated && (
-            <Link to="/messages" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg flex items-center justify-between" onClick={() => setMenuOpen(false)}>
-              <span className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-[#062E12]" /> Messages</span>
-              {unreadCount > 0 && <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">{unreadCount}</span>}
-            </Link>
-          )}
           {isAuthenticated && <Link to="/orders" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg" onClick={() => setMenuOpen(false)}>Orders</Link>}
           {isAuthenticated && <Link to="/offers" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg" onClick={() => setMenuOpen(false)}>Offers</Link>}
           {isAuthenticated && mode === 'seller' && <Link to="/my-listings" className="block px-3 py-2 text-sm font-medium text-dark-700 hover:bg-cream-50 rounded-lg" onClick={() => setMenuOpen(false)}>My Listings</Link>}

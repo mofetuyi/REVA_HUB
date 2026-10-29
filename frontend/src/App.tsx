@@ -85,7 +85,6 @@ import EditListingPage from './pages/marketplace/EditListingPage'
 import MyListingsPage from './pages/marketplace/MyListingsPage'
 import OffersPage from './pages/marketplace/OffersPage'
 import { CartPage } from './pages/marketplace/CartPage'
-import { MessagesPage } from './pages/marketplace/MessagesPage'
 
 // ── Orders ────────────────────────────────────────────────────────────────────
 import OrdersPage from './pages/orders/OrdersPage'
@@ -159,7 +158,6 @@ export default function App() {
           <Route path="my-listings" element={<PrivateRoute><MyListingsPage /></PrivateRoute>} />
           <Route path="offers" element={<PrivateRoute><OffersPage /></PrivateRoute>} />
           <Route path="orders" element={<PrivateRoute><OrdersPage /></PrivateRoute>} />
-          <Route path="messages" element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
           <Route path="settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
           <Route path="kyc" element={<PrivateRoute><KYCPage /></PrivateRoute>} />
           <Route path="learn/my-learning" element={<PrivateRoute><MyLearningPage /></PrivateRoute>} />

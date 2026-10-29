@@ -344,17 +344,6 @@ export default function OrdersPage() {
                 >
                   <Truck className="w-3.5 h-3.5" /> Track Delivery
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    const otherId = tab === 'buying' ? order.seller_id : order.buyer_id
-                    navigate(`/messages?sellerId=${otherId}&listingId=${order.listing_id}`)
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-[#062E12]"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-[#062E12]" /> Chat
-                </Button>
 
               </div>
 
