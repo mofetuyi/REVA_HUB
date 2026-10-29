@@ -730,7 +730,7 @@ function RatingModal({ tutorialId, onClose }: { tutorialId: string; onClose: () 
 
 
 function InteractiveCreatorSection({ tutorial }: { tutorial: Tutorial }) {
-  const { user } = useAuthStore()
+  const { user, activatePremium } = useAuthStore()
   const queryClient = useQueryClient()
   const [formOpen, setFormOpen] = useState(false)
   const [sessionType, setSessionType] = useState<'qa_priority' | 'critique' | 'one_on_one_call'>('qa_priority')
@@ -741,6 +741,35 @@ function InteractiveCreatorSection({ tutorial }: { tutorial: Tutorial }) {
   const [prefDate, setPrefDate] = useState('')
 
   const isPremiumUser = !!(user?.is_premium || user?.is_staff || user?.is_admin)
+
+  const nameParts = (user?.name || '').trim().split(/\s+/)
+  const firstName = nameParts[0] || ''
+  const lastName = nameParts.slice(1).join(' ') || ''
+  const userEmail = user?.email || (user?.phone ? `${user.phone.replace(/[^0-9]/g, '')}@reva-marketplace.com.ng` : '')
+  const userPhone = user?.phone || ''
+  const revaId = user?.reva_id || (user?.id ? `REVA-${user.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}` : 'REVA-MEMBER01')
+
+  const premiumParams = new URLSearchParams()
+  if (firstName) premiumParams.set('first_name', firstName)
+  if (lastName) premiumParams.set('last_name', lastName)
+  if (user?.name) premiumParams.set('name', user.name)
+  if (userEmail) premiumParams.set('email', userEmail)
+  if (userPhone) premiumParams.set('phone', userPhone)
+  premiumParams.set('reva_id_number', revaId)
+  premiumParams.set('reva_id', revaId)
+  premiumParams.set('REVA ID number', revaId)
+  premiumParams.set('REVA_ID_number', revaId)
+  premiumParams.set('reva_id_no', revaId)
+
+  const paystackPremiumUrl = `https://paystack.shop/pay/reva?${premiumParams.toString()}`
+
+  const handleQuickActivate = () => {
+    try {
+      navigator.clipboard.writeText(revaId)
+    } catch {}
+    activatePremium(30)
+    toast.success(`🎉 REVA ID ${revaId} copied & 30-Day Premium active! Opening Paystack...`, { duration: 4500 })
+  }
 
   const { data } = useQuery({
     queryKey: ['interactive-sessions', tutorial.id],
@@ -836,13 +865,24 @@ function InteractiveCreatorSection({ tutorial }: { tutorial: Tutorial }) {
             {formOpen ? 'Close Form' : 'Start Interactive Session'}
           </Button>
         ) : (
-          <Link
-            to="/premium"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-600 hover:to-amber-600 text-dark-950 font-bold text-xs rounded-xl shadow-sm transition-transform hover:scale-[1.02] self-start sm:self-auto"
-          >
-            <Crown className="w-4 h-4" />
-            <span>Unlock Interactive Access</span>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <a
+              href={paystackPremiumUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleQuickActivate}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-600 hover:to-amber-600 text-dark-950 font-bold text-xs rounded-xl shadow-md transition-all hover:scale-[1.02] cursor-pointer"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Activate Premium (NGN 3,000)</span>
+            </a>
+            <Link
+              to="/premium"
+              className="inline-flex items-center gap-1 px-3 py-2 bg-dark-100 hover:bg-dark-200 text-dark-800 font-semibold text-xs rounded-xl transition-colors"
+            >
+              <span>See Benefits</span>
+            </Link>
+          </div>
         )}
       </div>
 
@@ -876,6 +916,20 @@ function InteractiveCreatorSection({ tutorial }: { tutorial: Tutorial }) {
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>Personalized Project Critiques</span>
             </div>
+          </div>
+
+          <div className="pt-2 flex flex-wrap items-center gap-3 border-t border-gold-100">
+            <a
+              href={paystackPremiumUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleQuickActivate}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gold-500 hover:bg-gold-600 text-dark-950 font-bold text-xs rounded-xl shadow-md transition-all hover:scale-[1.02] cursor-pointer"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Pay NGN 3,000 on Paystack (Autofills Details & REVA ID)</span>
+            </a>
+            <span className="text-xs text-dark-500">Your REVA ID: <strong className="font-mono text-dark-900 bg-cream-100 px-2 py-0.5 rounded border border-cream-200">{revaId}</strong></span>
           </div>
         </div>
       )}

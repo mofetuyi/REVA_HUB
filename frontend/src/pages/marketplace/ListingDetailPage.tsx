@@ -121,7 +121,29 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
   const [paymentConfirmed, setPaymentConfirmed] = React.useState(false)
 
   const totalAmount = (listing.price_ngn || 0) * (quantity || 1)
-  const paystackUrl = `https://paystack.shop/pay/13c70vrnsm?amount=${encodeURIComponent(totalAmount)}&price=${encodeURIComponent(totalAmount)}&product=${encodeURIComponent(listing.title)}&name=${encodeURIComponent(user?.name || '')}&email=${encodeURIComponent(user?.email || '')}&phone=${encodeURIComponent(buyerPhone || user?.phone || '')}&reva_id=${encodeURIComponent(user?.reva_id || '')}`
+  const nameParts = (user?.name || '').trim().split(/\s+/)
+  const firstName = nameParts[0] || ''
+  const lastName = nameParts.slice(1).join(' ') || ''
+  const buyerEmail = user?.email || (buyerPhone || user?.phone ? `${(buyerPhone || user?.phone || '').replace(/[^0-9]/g, '')}@reva-marketplace.com.ng` : '')
+  const buyerRevaId = user?.reva_id || (user?.id ? `REVA-${user.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}` : '')
+
+  const goodsParams = new URLSearchParams()
+  goodsParams.set('amount', String(totalAmount))
+  goodsParams.set('price', String(totalAmount))
+  goodsParams.set('product', listing.title)
+  if (firstName) goodsParams.set('first_name', firstName)
+  if (lastName) goodsParams.set('last_name', lastName)
+  if (user?.name) goodsParams.set('name', user.name)
+  if (buyerEmail) goodsParams.set('email', buyerEmail)
+  if (buyerPhone || user?.phone) goodsParams.set('phone', buyerPhone || user?.phone || '')
+  if (buyerRevaId) {
+    goodsParams.set('reva_id_number', buyerRevaId)
+    goodsParams.set('reva_id', buyerRevaId)
+    goodsParams.set('REVA ID number', buyerRevaId)
+    goodsParams.set('REVA_ID_number', buyerRevaId)
+    goodsParams.set('reva_id_no', buyerRevaId)
+  }
+  const paystackUrl = `https://paystack.shop/pay/13c70vrnsm?${goodsParams.toString()}`
 
   const checkoutMutation = useMutation({
     mutationFn: () => {
@@ -169,88 +191,55 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
           </div>
         </div>
 
-        {/* Fulfillment Options */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold text-dark-800 uppercase tracking-wider">
-            Choose Delivery / Logistics Option *
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => setDeliveryMethod('self_pickup')}
-              className={`p-3 rounded-xl border text-left transition-all ${deliveryMethod === 'self_pickup' ? 'border-gold-500 bg-gold-50 ring-1 ring-gold-400 font-semibold' : 'border-cream-200 hover:border-cream-300'}`}
-            >
-              <span className="text-base block mb-1">🏢</span>
-              <strong className="block text-dark-900">Self-Pickup</strong>
-              <p className="text-[11px] text-dark-500 mt-0.5">Pick up directly from seller</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDeliveryMethod('own_courier')}
-              className={`p-3 rounded-xl border text-left transition-all ${deliveryMethod === 'own_courier' ? 'border-gold-500 bg-gold-50 ring-1 ring-gold-400 font-semibold' : 'border-cream-200 hover:border-cream-300'}`}
-            >
-              <span className="text-base block mb-1">🚚</span>
-              <strong className="block text-dark-900">Own Courier</strong>
-              <p className="text-[11px] text-dark-500 mt-0.5">Dispatch your rider to seller</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDeliveryMethod('reva_logistics')}
-              className={`p-3 rounded-xl border text-left transition-all ${deliveryMethod === 'reva_logistics' ? 'border-gold-500 bg-gold-50 ring-1 ring-gold-400 font-semibold' : 'border-cream-200 hover:border-cream-300'}`}
-            >
-              <span className="text-base block mb-1">📦</span>
-              <strong className="block text-dark-900">Reva Logistics</strong>
-              <p className="text-[11px] text-dark-500 mt-0.5">Partner truck delivery to you</p>
-            </button>
+        {/* Direct Doorstep Delivery Address (Self-pickup removed) */}
+        <div className="space-y-3 bg-cream-50 p-4 rounded-xl border border-cream-200 text-xs">
+          <div className="flex items-center gap-2 text-dark-900 font-bold text-sm">
+            <span>🚚</span>
+            <span>Direct Doorstep Delivery Destination in Lagos</span>
           </div>
-        </div>
 
-        {/* Dynamic Address & Contact based on user selection */}
-        {deliveryMethod === 'self_pickup' && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1 text-blue-900">
-            <p className="font-bold">📍 Seller Pickup Point & Contact:</p>
-            <p><strong>Pickup Address:</strong> {listing.pickup_address || `${listing.lga}, Lagos, Nigeria`}</p>
-            <p><strong>Seller Contact Phone:</strong> {listing.seller?.phone || 'Shown upon order placement'}</p>
+          <div>
+            <label className="block text-dark-800 font-semibold mb-1">
+              Your Delivery Street Address & Area in Lagos *
+            </label>
+            <input
+              type="text"
+              value={buyerAddress}
+              onChange={(e) => setBuyerAddress(e.target.value)}
+              placeholder="e.g. 14 Commercial Avenue, Sabo Yaba, Lagos"
+              className="w-full px-3 py-2 bg-white border border-cream-200 rounded-lg text-xs text-dark-900 focus:outline-none focus:ring-1 focus:ring-gold-500"
+              required
+            />
           </div>
-        )}
 
-        {deliveryMethod === 'own_courier' && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1 text-blue-900">
-            <p className="font-bold">📍 Pickup Location for Your Courier / Dispatch Rider:</p>
-            <p><strong>Address:</strong> {listing.pickup_address || `${listing.lga}, Lagos, Nigeria`}</p>
-            <p><strong>Seller Contact Phone:</strong> {listing.seller?.phone || 'Shown for dispatch coordination'}</p>
-          </div>
-        )}
-
-        {deliveryMethod === 'reva_logistics' && (
-          <div className="space-y-2.5 bg-cream-50 p-3.5 rounded-xl border border-cream-200 text-xs">
-            <p className="font-bold text-dark-900">📦 Delivery Address Details (Reva Hub Logistics Partners):</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label className="block text-dark-700 font-medium mb-1">Your Delivery Phone Number *</label>
+              <label className="block text-dark-800 font-semibold mb-1">
+                Recipient Phone Number *
+              </label>
               <input
                 type="tel"
                 value={buyerPhone}
                 onChange={(e) => setBuyerPhone(e.target.value)}
                 placeholder="+2348012345678"
-                className="w-full px-3 py-2 bg-white border border-cream-200 rounded-lg text-xs"
+                className="w-full px-3 py-2 bg-white border border-cream-200 rounded-lg text-xs text-dark-900 focus:outline-none focus:ring-1 focus:ring-gold-500"
                 required
               />
             </div>
             <div>
-              <label className="block text-dark-700 font-medium mb-1">Delivery Street Address & Landmark in Lagos *</label>
+              <label className="block text-dark-800 font-semibold mb-1">
+                Closest Landmark / Junction (Optional)
+              </label>
               <input
                 type="text"
-                value={buyerAddress}
-                onChange={(e) => setBuyerAddress(e.target.value)}
-                placeholder="e.g. 14 Commercial Ave, Sabo Yaba, Lagos"
-                className="w-full px-3 py-2 bg-white border border-cream-200 rounded-lg text-xs"
-                required
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Beside Total Filling Station"
+                className="w-full px-3 py-2 bg-white border border-cream-200 rounded-lg text-xs text-dark-900 focus:outline-none focus:ring-1 focus:ring-gold-500"
               />
             </div>
           </div>
-        )}
+        </div>
 
         {/* Paystack Payment Section with autofilled amount & payment link */}
         <div className="border border-gold-300 bg-gold-50/60 p-4 rounded-xl space-y-2.5">

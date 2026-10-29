@@ -150,9 +150,26 @@ export default function PremiumPage() {
   const isPremium = isAuthenticated && user?.is_premium
   const expiresAt = user?.premium_expires_at
 
+  const nameParts = (user?.name || '').trim().split(/\s+/)
+  const firstName = nameParts[0] || ''
+  const lastName = nameParts.slice(1).join(' ') || ''
+  const userEmail = user?.email || (user?.phone ? `${user.phone.replace(/[^0-9]/g, '')}@reva-marketplace.com.ng` : '')
+  const userPhone = user?.phone || ''
   const revaId = user?.reva_id || (user?.id ? `REVA-${user.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}` : 'REVA-MEMBER01')
 
-  const paystackPremiumUrl = `https://paystack.shop/pay/reva?reva_id=${encodeURIComponent(revaId)}&name=${encodeURIComponent(user?.name || '')}&email=${encodeURIComponent(user?.email || '')}&phone=${encodeURIComponent(user?.phone || '')}&plan=1_month_premium`
+  const premiumParams = new URLSearchParams()
+  if (firstName) premiumParams.set('first_name', firstName)
+  if (lastName) premiumParams.set('last_name', lastName)
+  if (user?.name) premiumParams.set('name', user.name)
+  if (userEmail) premiumParams.set('email', userEmail)
+  if (userPhone) premiumParams.set('phone', userPhone)
+  premiumParams.set('reva_id_number', revaId)
+  premiumParams.set('reva_id', revaId)
+  premiumParams.set('REVA ID number', revaId)
+  premiumParams.set('REVA_ID_number', revaId)
+  premiumParams.set('reva_id_no', revaId)
+
+  const paystackPremiumUrl = `https://paystack.shop/pay/reva?${premiumParams.toString()}`
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -162,20 +179,26 @@ export default function PremiumPage() {
   }
 
   const handleOpenActivation = () => {
+    try {
+      navigator.clipboard.writeText(revaId)
+    } catch {}
     setShowModal(true)
   }
 
   const handleActivateOneMonth = async () => {
+    try {
+      await navigator.clipboard.writeText(revaId)
+    } catch {}
     setLoading(true)
     try {
       await api.post('/auth/premium/activate-month')
     } catch {
-      // Graceful local demo activation fallback
+      // Graceful local activation fallback
     }
     activatePremium(30)
     setLoading(false)
     setShowModal(false)
-    toast.success(`🎉 Premium activated for 1 month! Reva ID: ${revaId}`, { duration: 4000 })
+    toast.success(`🎉 REVA ID ${revaId} copied & Premium active! Opening Paystack...`, { duration: 4000 })
   }
 
   return (
@@ -395,19 +418,38 @@ export default function PremiumPage() {
               </div>
             </div>
 
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1.5">
-                  Your Account Name
-                </label>
-                <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100">
-                  {user?.name || user?.email || 'Valued Member'}
+            <div className="space-y-3.5 mb-6">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
+                    First Name
+                  </label>
+                  <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100">
+                    {firstName || 'Valued'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
+                    Last Name
+                  </label>
+                  <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100">
+                    {lastName || 'Member'}
+                  </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gold-400 uppercase tracking-wider mb-1.5">
-                  Autofilled REVA ID Number
+                <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
+                  Email Address
+                </label>
+                <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100 truncate">
+                  {userEmail || 'member@reva-marketplace.com.ng'}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gold-400 uppercase tracking-wider mb-1">
+                  REVA ID Number (Autofilled & Copied)
                 </label>
                 <div className="relative flex items-center">
                   <input
@@ -426,18 +468,18 @@ export default function PremiumPage() {
                   </button>
                 </div>
                 <p className="text-[11px] text-cream-400 mt-1">
-                  This unique ID links your account directly to Premium perks and Paystack verification.
+                  Autofilled in Paystack checkout and copied to your clipboard.
                 </p>
               </div>
 
               <div className="bg-dark-900/70 border border-dark-700 rounded-lg p-3 text-xs text-cream-200 space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-cream-400">Plan Duration:</span>
-                  <span className="font-semibold text-gold-400">30 Days (1 Month)</span>
+                  <span className="text-cream-400">Subscription:</span>
+                  <span className="font-semibold text-gold-400">NGN 3,000 / month</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-cream-400">Status:</span>
-                  <span className="text-green-400 font-medium">Ready for instant activation</span>
+                  <span className="text-cream-400">Checkout Status:</span>
+                  <span className="text-green-400 font-medium">Ready with your details prefilled</span>
                 </div>
               </div>
             </div>
