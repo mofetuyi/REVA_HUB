@@ -48,6 +48,7 @@ class CollectionMethod(str, PyEnum):
     buyer_arranges = "buyer_arranges"
     seller_arranges = "seller_arranges"
     either = "either"
+    delivery = "delivery"
 
 
 class ListingStatus(str, PyEnum):
