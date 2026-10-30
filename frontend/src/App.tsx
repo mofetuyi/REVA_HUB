@@ -6,6 +6,7 @@
  */
 import React, { Suspense, lazy, Component, ErrorInfo, ReactNode } from 'react'
 import { Routes, Route, Navigate, Link } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import { Layout, AuthLayout, AdminLayout } from './components/layout/Layout'
 import { PrivateRoute, AdminRoute, StaffRoute } from './components/layout/RouteGuards'
 import { LoadingPage } from './components/ui/index'
@@ -130,6 +131,33 @@ const SuspenseFallback = <LoadingPage />
 export default function App() {
   return (
     <ErrorBoundary>
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 4500,
+          style: {
+            background: '#141414',
+            color: '#FAF8F5',
+            borderRadius: '12px',
+            border: '1px solid rgba(201, 162, 39, 0.4)',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
+            fontSize: '14px',
+            fontWeight: 500,
+          },
+          success: {
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#FFFFFF',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#EF4444',
+              secondary: '#FFFFFF',
+            },
+          },
+        }}
+      />
       <Suspense fallback={SuspenseFallback}>
         <Routes>
         {/* ── Public layout ─────────────────────────────────────────────────── */}

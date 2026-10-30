@@ -1,4 +1,4 @@
-# Deployment trigger: 2026-10-30T08:02:00Z
+# Deployment trigger: 2026-10-30T19:15:00Z
 # =============================================================================
 # Render Blueprint Specification for Reva Hub
 # Hosts both Frontend & Backend on a single domain with zero stress.
@@ -22,3 +22,13 @@ services:
         value: /opt/render/project/src/frontend/dist
       - key: DATABASE_URL
         sync: false # Paste your Neon PostgreSQL connection string here
+      - key: WHATSAPP_PROVIDER
+        value: wsapi
+      - key: WHATSAPP_API_KEY
+        value: sk_hXOvkP3W3U-msS9u7st6jA
+      - key: WHATSAPP_INSTANCE_ID
+        value: ins_7lOt9mloPIEf
+      - key: WHATSAPP_GATEWAY_URL
+        value: https://api.wsapi.chat/messages/text
+      - key: WHATSAPP_SENDER_PHONE
+        value: "2347076630396"

@@ -260,119 +260,92 @@ async def signup(
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis),
 ):
-    """Register a new user or update password if existing. Automatically verifies without friction."""
-    # Check phone uniqueness or update existing password
-    existing = await db.execute(select(User).where(User.phone == req.phone))
+    """Register a new user and dispatch a WhatsApp OTP verification code via WSAPI."""
+    clean_phone = normalize_phone_number(req.phone)
+    local_phone = "0" + clean_phone[3:] if clean_phone.startswith("234") else clean_phone
+    plus_phone = "+" + clean_phone if not clean_phone.startswith("+") else clean_phone
+
+    # Check if this phone number already belongs to a verified user
+    existing = await db.execute(
+        select(User).where(
+            (User.phone == req.phone) | (User.phone == clean_phone) | (User.phone == local_phone) | (User.phone == plus_phone)
+        )
+    )
     existing_user = existing.scalar_one_or_none()
-    if existing_user:
-        existing_user.hashed_password = hash_password(req.password)
-        existing_user.is_phone_verified = True
-        existing_user.is_active = True
-        if req.name:
-            existing_user.name = req.name
-        if req.email:
-            existing_user.email = req.email
-        await db.commit()
-        await db.refresh(existing_user)
-        access_token = create_access_token(str(existing_user.id))
-        refresh_token = create_refresh_token(str(existing_user.id))
-        user_dict = {
-            "id": str(existing_user.id),
-            "name": existing_user.name,
-            "email": existing_user.email,
-            "phone": existing_user.phone or "",
-            "reva_id": existing_user.reva_id,
-            "account_type": existing_user.account_type.value if hasattr(existing_user.account_type, "value") else str(existing_user.account_type),
-            "kyc_status": "verified",
-            "current_mode": existing_user.current_mode.value if hasattr(existing_user.current_mode, "value") else str(existing_user.current_mode),
-            "is_buyer": existing_user.is_buyer,
-            "is_seller": existing_user.is_seller,
-            "is_admin": existing_user.is_admin,
-            "is_staff": existing_user.is_staff,
-            "is_premium": existing_user.is_premium,
-        }
-        return {
-            "message": "Account password saved. Welcome to Reva Hub!",
-            "requires_verification": False,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "phone": existing_user.phone,
-            "user_id": str(existing_user.id),
-            "reva_id": existing_user.reva_id,
-            "name": existing_user.name,
-            "user": user_dict,
-        }
+
+    if existing_user and existing_user.is_phone_verified:
+        raise HTTPException(
+            status_code=400,
+            detail="An account with this phone number already exists. Please log in.",
+        )
 
     # Check email uniqueness if provided
     if req.email:
-        existing_email = await db.execute(select(User).where(User.email == req.email))
+        clean_email = req.email.strip().lower()
+        existing_email = await db.execute(
+            select(User).where(
+                (User.email == clean_email) & (User.id != (existing_user.id if existing_user else None))
+            )
+        )
         if existing_email.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(status_code=400, detail="This email is already registered to another account")
 
     if req.account_type == AccountType.business and not req.business_name:
         raise HTTPException(status_code=400, detail="Business name is required for business accounts")
 
-    user = User(
-        phone=req.phone,
-        name=req.name,
-        email=req.email,
-        hashed_password=hash_password(req.password),
-        state=req.state,
-        lga=req.lga,
-        account_type=req.account_type,
-        business_name=req.business_name,
-        cac_number=req.cac_number,
-        is_buyer=True,
-        is_seller=False,
-        is_phone_verified=True,
-        is_email_verified=True if req.email else False,
-        kyc_status=KYCStatus.verified,
-        current_mode=UserMode.buyer,
-        policy_version_accepted=settings.CURRENT_POLICY_VERSION,
-        policy_accepted_at=datetime.now(timezone.utc),
-    )
-    db.add(user)
-    await db.flush()
-    user.reva_id = f"REVA-{str(user.id).upper()}"
+    if existing_user:
+        existing_user.hashed_password = hash_password(req.password)
+        existing_user.name = req.name.strip()
+        if req.email:
+            existing_user.email = req.email.strip().lower()
+        existing_user.state = req.state
+        existing_user.lga = req.lga
+        existing_user.account_type = req.account_type
+        if req.business_name:
+            existing_user.business_name = req.business_name.strip()
+        existing_user.is_phone_verified = False
+        user = existing_user
+    else:
+        user = User(
+            phone=plus_phone,
+            name=req.name.strip(),
+            email=req.email.strip().lower() if req.email else None,
+            hashed_password=hash_password(req.password),
+            state=req.state,
+            lga=req.lga,
+            account_type=req.account_type,
+            business_name=req.business_name.strip() if req.business_name else None,
+            cac_number=req.cac_number,
+            is_buyer=True,
+            is_seller=False,
+            is_phone_verified=False,
+            is_email_verified=False,
+            kyc_status=KYCStatus.unverified,
+            current_mode=UserMode.buyer,
+            policy_version_accepted=settings.CURRENT_POLICY_VERSION,
+            policy_accepted_at=datetime.now(timezone.utc),
+        )
+        db.add(user)
+        await db.flush()
+        user.reva_id = f"REVA-{str(user.id).upper()}"
+
     await db.commit()
     await db.refresh(user)
 
     if req.email:
         background_tasks.add_task(send_welcome_email, user)
 
-    access_token = create_access_token(str(user.id))
-    refresh_token = create_refresh_token(str(user.id))
-    try:
-        await store_refresh_token(str(user.id), refresh_token, redis)
-    except Exception:
-        pass
-
-    user_dict = {
-        "id": str(user.id),
-        "name": user.name,
-        "email": user.email,
-        "phone": user.phone or "",
-        "reva_id": user.reva_id,
-        "account_type": user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type),
-        "kyc_status": "verified",
-        "current_mode": user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode),
-        "is_buyer": user.is_buyer,
-        "is_seller": user.is_seller,
-        "is_admin": user.is_admin,
-        "is_staff": user.is_staff,
-        "is_premium": user.is_premium,
-    }
+    # Send 6-digit verification code to WhatsApp via WSAPI
+    success, otp, msg, direct_link = await send_whatsapp_otp(clean_phone, redis)
+    logger.info("WhatsApp OTP dispatched to %s (success=%s): %s", clean_phone, success, msg)
 
     return {
-        "message": "Account created successfully with your password saved. Welcome to Reva Hub!",
-        "requires_verification": False,
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "phone": user.phone,
+        "message": "Account created! A 6-digit verification code was sent to your WhatsApp.",
+        "requires_verification": True,
+        "phone": clean_phone,
+        "whatsapp_link": direct_link,
         "user_id": str(user.id),
-        "reva_id": user.reva_id,
         "name": user.name,
-        "user": user_dict,
     }
 
 
@@ -390,6 +363,10 @@ async def verify_otp(
     if not valid:
         # Check raw or alternate phone key if stored with +
         valid, err_msg = await verify_otp_code(req.phone.strip(), req.otp.strip(), redis)
+    if not valid:
+        valid, err_msg = await verify_whatsapp_otp_code(clean_phone, req.otp.strip(), redis)
+    if not valid:
+        valid, err_msg = await verify_whatsapp_otp_code(req.phone.strip(), req.otp.strip(), redis)
 
     if not valid:
         raise HTTPException(status_code=400, detail=err_msg or "Invalid or expired OTP code")
@@ -411,6 +388,7 @@ async def verify_otp(
     user.kyc_verified_at = datetime.now(timezone.utc)
     user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
+    await db.refresh(user)
 
     access_token = create_access_token(str(user.id))
     refresh_token = create_refresh_token(str(user.id))
@@ -421,13 +399,31 @@ async def verify_otp(
 
     user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "buyer")
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user_id=str(user.id),
-        name=user.name or "Reva Member",
-        mode=user_mode_str,
-    )
+    user_dict = {
+        "id": str(user.id),
+        "name": user.name or "Reva Member",
+        "email": user.email,
+        "phone": user.phone or "",
+        "reva_id": user.reva_id,
+        "account_type": user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type),
+        "kyc_status": "verified",
+        "current_mode": user_mode_str,
+        "is_buyer": user.is_buyer,
+        "is_seller": user.is_seller,
+        "is_admin": user.is_admin,
+        "is_staff": user.is_staff,
+        "is_premium": bool(user.is_premium),
+    }
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user_id": str(user.id),
+        "name": user.name or "Reva Member",
+        "mode": user_mode_str,
+        "user": user_dict,
+    }
 
 
 @router.post("/login")
@@ -744,18 +740,23 @@ async def resend_otp(
     req: ResendOTPRequest,
     redis = Depends(get_redis),
 ):
-    """Resend OTP to the given phone number with 60-second rate-limiting throttle."""
-    throttle_key = f"resend_otp_throttle:{req.phone}"
+    """Resend OTP to the given phone number with 30-second rate-limiting throttle."""
+    clean_phone = normalize_phone_number(req.phone)
+    throttle_key = f"resend_otp_throttle:{clean_phone}"
     cooldown = await redis.get(throttle_key)
     if cooldown:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Please wait 60 seconds before requesting another verification code."
+            detail="Please wait 30 seconds before requesting another verification code."
         )
 
-    await redis.setex(throttle_key, 60, "1")
-    await send_otp(req.phone, redis)
-    return {"message": "Verification code resent"}
+    await redis.setex(throttle_key, 30, "1")
+    success, otp, msg, direct_link = await send_whatsapp_otp(clean_phone, redis)
+    return {
+        "success": success,
+        "message": msg or "Verification code resent to your WhatsApp",
+        "whatsapp_link": direct_link,
+    }
 
 
 @router.post("/premium/activate-month")

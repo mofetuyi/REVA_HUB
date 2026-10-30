@@ -10,11 +10,15 @@ import { useAuthStore } from '../../store/authStore'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { LAGOS_LGAS } from '../../lib/nigeriaData'
-import { GoogleAuthButton } from '../../components/auth/GoogleAuthButton'
 
 const step1Schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().regex(/^\d{10}$/, 'Enter 10 digits after 234 (e.g. 8012345678)'),
+  phone: z.string().refine((val) => {
+    const digits = val.replace(/\D/g, '')
+    return digits.length === 10 || digits.length === 11 || (digits.startsWith('234') && digits.length === 13)
+  }, {
+    message: 'Enter a valid 10 or 11 digit Nigerian phone number (e.g. 08012345678)',
+  }),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string(),
@@ -24,11 +28,11 @@ const step1Schema = z.object({
 })
 
 const step2Schema = z.object({
-  lga: z.string().min(1, 'Please select your LGA'),
+  lga: z.string().min(1, 'Please select your Lagos LGA'),
   account_type: z.enum(['individual', 'business']),
   business_name: z.string().optional(),
-  agree_to_policy: z.literal(true, {
-    errorMap: () => ({ message: 'You must accept the Reva Hub User Agreement to continue' }),
+  agree_to_policy: z.boolean().refine(v => v === true, {
+    message: 'You must accept the Reva Hub User Agreement to continue',
   }),
 })
 
@@ -40,31 +44,53 @@ export default function SignupPage() {
   const [step, setStep] = React.useState(1)
   const [step1Data, setStep1Data] = React.useState<Step1Data | null>(null)
 
-  const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema) })
-  const form2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema), defaultValues: { account_type: 'individual' } })
+  const form1 = useForm<Step1Data>({
+    resolver: zodResolver(step1Schema),
+    mode: 'onTouched',
+  })
+
+  const form2 = useForm<Step2Data>({
+    resolver: zodResolver(step2Schema),
+    defaultValues: {
+      account_type: 'individual',
+      agree_to_policy: true,
+      lga: '',
+    },
+    mode: 'onTouched',
+  })
 
   const accountType = form2.watch('account_type')
 
   const signupMutation = useMutation({
     mutationFn: (data: Step1Data & Step2Data) => {
-      const phone = `234${data.phone.replace(/^0/, '')}`
+      const rawDigits = data.phone.replace(/\D/g, '')
+      const cleanTen = rawDigits.startsWith('234')
+        ? rawDigits.slice(3)
+        : (rawDigits.startsWith('0') ? rawDigits.slice(1) : rawDigits)
+      const phone = `234${cleanTen}`
+
       return api.post('/auth/signup', {
         phone,
-        name: data.name,
-        email: data.email || undefined,
+        name: data.name.trim(),
+        email: data.email?.trim() || undefined,
         password: data.password,
         state: 'Lagos',
         lga: data.lga,
         account_type: data.account_type,
-        business_name: data.account_type === 'business' ? data.business_name : undefined,
+        business_name: data.account_type === 'business' ? data.business_name?.trim() : undefined,
         agree_to_policy: true,
       })
     },
     onSuccess: (res: any, data) => {
-      const phone = `234${data.phone.replace(/^0/, '')}`
-      // If verification is required, forward to VerifyOTPPage
+      const rawDigits = data.phone.replace(/\D/g, '')
+      const cleanTen = rawDigits.startsWith('234')
+        ? rawDigits.slice(3)
+        : (rawDigits.startsWith('0') ? rawDigits.slice(1) : rawDigits)
+      const phone = `234${cleanTen}`
+
+      // Forward to VerifyOTPPage for WhatsApp verification
       if (res?.data?.requires_verification || !res?.data?.access_token) {
-        toast.success('Account created! A verification code was sent to your WhatsApp.')
+        toast.success(res?.data?.message || 'Verification code sent to your WhatsApp!')
         navigate('/verify-otp', {
           state: {
             phone,
@@ -80,7 +106,7 @@ export default function SignupPage() {
       }
       const userObj = res.data.user
       useAuthStore.getState().login(tokens, userObj)
-      toast.success(`Welcome to Reva Hub, ${data.name}!`)
+      toast.success(`Welcome to Reva Hub, ${data.name}! 🌿`)
       navigate('/')
     },
     onError: (err: any) => {
@@ -93,20 +119,41 @@ export default function SignupPage() {
     setStep(2)
   }
 
+  const onStep1Errors = (errors: any) => {
+    if (errors.name) toast.error(errors.name.message)
+    else if (errors.phone) toast.error(errors.phone.message)
+    else if (errors.email) toast.error(errors.email.message)
+    else if (errors.password) toast.error(errors.password.message)
+    else if (errors.confirmPassword) toast.error(errors.confirmPassword.message)
+    else toast.error('Please check the form fields')
+  }
+
   const onStep2 = (data: Step2Data) => {
-    if (!step1Data) return
+    if (!step1Data) {
+      toast.error('Please complete step 1 first')
+      setStep(1)
+      return
+    }
     if (data.account_type === 'business' && !data.business_name?.trim()) {
       form2.setError('business_name', { message: 'Business name is required' })
+      toast.error('Please enter your business name')
       return
     }
     signupMutation.mutate({ ...step1Data, ...data })
   }
 
+  const onStep2Errors = (errors: any) => {
+    if (errors.lga) toast.error(errors.lga.message)
+    else if (errors.agree_to_policy) toast.error(errors.agree_to_policy.message || 'Please accept the Reva Hub User Agreement to continue')
+    else if (errors.business_name) toast.error(errors.business_name.message)
+    else toast.error('Please complete all required fields')
+  }
+
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in max-w-md mx-auto">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-display font-bold text-dark-900">Create your account</h1>
-        <p className="text-dark-600 mt-1 text-sm">Join Reva Hub – Lagos's recovered materials marketplace</p>
+        <p className="text-dark-600 mt-1 text-sm">Join Reva Hub – Lagos's circular materials & upcycling marketplace</p>
       </div>
 
       {/* Step indicator */}
@@ -122,7 +169,7 @@ export default function SignupPage() {
       </div>
 
       {step === 1 && (
-        <form onSubmit={form1.handleSubmit(onStep1)} className="space-y-4">
+        <form onSubmit={form1.handleSubmit(onStep1, onStep1Errors)} className="space-y-4">
           <Input
             label="Full name"
             placeholder="e.g. Amara Okafor"
@@ -132,20 +179,22 @@ export default function SignupPage() {
           />
           <div>
             <label className="block text-sm font-medium text-dark-800 mb-1">
-              Phone number <span className="text-red-500">*</span>
+              WhatsApp Phone number <span className="text-red-500">*</span>
             </label>
             <div className="flex">
-              <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium whitespace-nowrap">234</span>
+              <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium whitespace-nowrap">+234</span>
               <input
                 type="tel"
-                placeholder="8012345678"
-                maxLength={10}
+                placeholder="08012345678 or 8012345678"
+                maxLength={11}
                 className="flex-1 px-3 py-2 border border-cream-200 bg-white text-dark-900 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-400"
                 {...form1.register('phone')}
               />
             </div>
-            {form1.formState.errors.phone && (
+            {form1.formState.errors.phone ? (
               <p className="mt-1 text-sm text-red-600">{form1.formState.errors.phone.message}</p>
+            ) : (
+              <p className="text-xs text-dark-500 mt-1">We'll send your 6-digit verification code to this WhatsApp number</p>
             )}
           </div>
           <Input
@@ -167,17 +216,18 @@ export default function SignupPage() {
             label="Confirm password"
             type="password"
             required
+            placeholder="Re-enter password"
             {...form1.register('confirmPassword')}
             error={form1.formState.errors.confirmPassword?.message}
           />
-          <Button type="submit" fullWidth>
-            Continue
+          <Button type="submit" fullWidth className="bg-gold-500 hover:bg-gold-600 text-dark-950 font-bold py-2.5">
+            Continue to Step 2 →
           </Button>
         </form>
       )}
 
       {step === 2 && (
-        <form onSubmit={form2.handleSubmit(onStep2)} className="space-y-4">
+        <form onSubmit={form2.handleSubmit(onStep2, onStep2Errors)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-dark-800 mb-1">Lagos LGA <span className="text-red-500">*</span></label>
             <select
@@ -222,14 +272,14 @@ export default function SignupPage() {
               <input
                 id="agree_to_policy"
                 type="checkbox"
-                className="mt-1 w-4 h-4 text-gold-500 rounded border-cream-300 focus:ring-gold-400"
+                className="mt-1 w-4 h-4 text-gold-500 rounded border-cream-300 focus:ring-gold-400 cursor-pointer"
                 {...form2.register('agree_to_policy')}
               />
-              <label htmlFor="agree_to_policy" className="text-xs text-dark-700 leading-relaxed cursor-pointer">
-                <strong>Reva Hub User Agreement:</strong> I agree to use Reva Hub lawfully, honestly and responsibly. I will not engage in fraud, scams, theft, harassment, exploitation, unauthorized access, unlawful trading, or any activity that harms other users or the platform. I understand that Reva Hub may investigate reports, remove content, restrict transactions, suspend or terminate accounts, and cooperate with lawful investigations when necessary. I agree to Reva Hub's{' '}
+              <label htmlFor="agree_to_policy" className="text-xs text-dark-700 leading-relaxed cursor-pointer select-none">
+                <strong>Reva Hub User Agreement:</strong> I agree to use Reva Hub lawfully, honestly and responsibly. I will not engage in fraud, scams, theft, harassment, exploitation, unauthorized access, or unlawful trading. I agree to Reva Hub's{' '}
                 <Link to="/terms" target="_blank" className="text-gold-600 underline font-medium">Terms of Service</Link>,{' '}
                 <Link to="/privacy" target="_blank" className="text-gold-600 underline font-medium">Privacy Policy</Link>, and{' '}
-                <Link to="/policy" target="_blank" className="text-gold-600 underline font-medium">Trust, Safety & Acceptable Use Policy</Link>.
+                <Link to="/policy" target="_blank" className="text-gold-600 underline font-medium">Trust & Safety Policy</Link>.
               </label>
             </div>
             {form2.formState.errors.agree_to_policy && (
@@ -239,16 +289,24 @@ export default function SignupPage() {
             )}
           </div>
 
-          <div className="flex gap-3">
-            <Button type="button" variant="secondary" onClick={() => setStep(1)} className="flex-1">Back</Button>
-            <Button type="submit" loading={signupMutation.isPending} className="flex-1">Create Account</Button>
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setStep(1)} className="flex-1">
+              ← Back
+            </Button>
+            <Button
+              type="submit"
+              loading={signupMutation.isPending}
+              className="flex-1 bg-gold-500 hover:bg-gold-600 text-dark-950 font-bold py-2.5 shadow-md"
+            >
+              Create Account
+            </Button>
           </div>
         </form>
       )}
 
       <p className="text-center text-sm text-dark-600 mt-6">
         Already have an account?{' '}
-        <Link to="/login" className="text-gold-600 font-medium hover:underline">Log in</Link>
+        <Link to="/login" className="text-gold-600 font-semibold hover:underline">Log in</Link>
       </p>
     </div>
   )

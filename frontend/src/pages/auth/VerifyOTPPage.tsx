@@ -13,7 +13,7 @@ export default function VerifyOTPPage() {
   const phone = (location.state as { phone?: string })?.phone || ''
   const initialWhatsappLink = (location.state as { whatsapp_link?: string })?.whatsapp_link || null
   const [otp, setOtp] = React.useState(['', '', '', '', '', ''])
-  const [resendCooldown, setResendCooldown] = React.useState(60)
+  const [resendCooldown, setResendCooldown] = React.useState(30)
   const inputRefs = React.useRef<Array<HTMLInputElement | null>>([])
   const [whatsappLink, setWhatsappLink] = React.useState<string | null>(initialWhatsappLink)
 
@@ -30,12 +30,19 @@ export default function VerifyOTPPage() {
   const verifyMutation = useMutation({
     mutationFn: (code: string) => api.post('/auth/verify-otp', { phone, otp: code }),
     onSuccess: async (res) => {
-      // Fetch user profile
-      const meRes = await api.get('/auth/me', {
-        headers: { Authorization: `Bearer ${res.data.access_token}` },
-      })
-      login({ access_token: res.data.access_token, refresh_token: res.data.refresh_token }, meRes.data)
-      toast.success('Phone verified! Welcome to Reva 🌿')
+      let userData = res.data?.user
+      if (!userData) {
+        try {
+          const meRes = await api.get('/auth/me', {
+            headers: { Authorization: `Bearer ${res.data.access_token}` },
+          })
+          userData = meRes.data
+        } catch {
+          // fallback
+        }
+      }
+      login({ access_token: res.data.access_token, refresh_token: res.data.refresh_token }, userData)
+      toast.success('Phone verified via WhatsApp! Welcome to Reva Hub 🌿')
       navigate('/')
     },
     onError: (err) => {
@@ -56,15 +63,19 @@ export default function VerifyOTPPage() {
       if (res.data?.whatsapp_link) {
         setWhatsappLink(res.data.whatsapp_link)
       }
+      setResendCooldown(30)
     },
     onError: (err) => toast.error(extractError(err)),
   })
 
   const resendMutation = useMutation({
     mutationFn: () => api.post('/auth/resend-otp', { phone }),
-    onSuccess: () => {
-      toast.success('New OTP sent')
-      setResendCooldown(60)
+    onSuccess: (res) => {
+      toast.success(res.data?.message || 'New WhatsApp code sent!')
+      if (res.data?.whatsapp_link) {
+        setWhatsappLink(res.data.whatsapp_link)
+      }
+      setResendCooldown(30)
     },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -96,20 +107,24 @@ export default function VerifyOTPPage() {
 
   if (!phone) {
     return (
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-4 max-w-md mx-auto py-12">
         <p className="text-dark-600">No phone number found. Please sign up again.</p>
-        <Link to="/signup" className="text-gold-600 font-medium hover:underline">Sign up</Link>
+        <Link to="/signup" className="text-gold-600 font-semibold hover:underline">← Go to sign up</Link>
       </div>
     )
   }
 
+  const displayPhone = phone.startsWith('+') ? phone : (phone.startsWith('234') ? `+${phone}` : phone)
+
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in max-w-md mx-auto">
       <div className="text-center mb-6">
-        <div className="text-4xl mb-3">📱</div>
-        <h1 className="text-2xl font-display font-bold text-dark-900">Verify your phone</h1>
+        <div className="w-14 h-14 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center mx-auto mb-3 text-2xl">
+          💬
+        </div>
+        <h1 className="text-2xl font-display font-bold text-dark-900">Verify your WhatsApp</h1>
         <p className="text-dark-600 mt-2 text-sm">
-          Enter the 6-digit code sent to <strong>{phone}</strong>
+          We sent a 6-digit verification code to <strong className="text-dark-900">{displayPhone}</strong> via WhatsApp.
         </p>
       </div>
 
@@ -125,27 +140,28 @@ export default function VerifyOTPPage() {
             onChange={(e) => handleChange(idx, e.target.value)}
             onKeyDown={(e) => handleKeyDown(idx, e)}
             aria-label={`OTP digit ${idx + 1}`}
-            className="w-12 h-14 text-center text-xl font-bold border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-500 transition-colors bg-white"
+            className="w-12 h-14 text-center text-xl font-bold border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-500 transition-colors bg-white shadow-sm"
             style={{ borderColor: digit ? '#C9A227' : '#E8E0CC' }}
           />
         ))}
       </div>
 
       {verifyMutation.isPending && (
-        <div className="flex justify-center mb-4">
-          <div className="w-6 h-6 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center justify-center gap-2 mb-4 text-sm text-gold-700 font-medium">
+          <div className="w-5 h-5 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" />
+          <span>Verifying code...</span>
         </div>
       )}
 
       <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-center space-y-2.5">
         <div className="flex items-center justify-center gap-2 text-emerald-900 font-bold text-xs uppercase tracking-wider">
-          <span>💬</span>
-          <span>WhatsApp Verification</span>
+          <span>🌿</span>
+          <span>WhatsApp Quick Access</span>
         </div>
-        <p className="text-xs text-emerald-800">
-          Prefer receiving your 6-digit code on WhatsApp?
+        <p className="text-xs text-emerald-800 leading-relaxed">
+          Open WhatsApp to view your code or request a fresh one directly.
         </p>
-        <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+        <div className="flex flex-col sm:flex-row gap-2 justify-center items-center pt-1">
           <Button
             type="button"
             variant="secondary"
@@ -170,22 +186,21 @@ export default function VerifyOTPPage() {
         </div>
       </div>
 
-      <div className="text-center">
+      <div className="text-center space-y-3">
         {resendCooldown > 0 ? (
-          <p className="text-sm text-dark-500">Resend code in {resendCooldown}s</p>
+          <p className="text-xs text-dark-500">Resend WhatsApp code in {resendCooldown}s</p>
         ) : (
           <button
             onClick={() => resendMutation.mutate()}
             disabled={resendMutation.isPending}
-            className="text-sm text-gold-600 font-medium hover:underline disabled:opacity-50"
+            className="text-sm text-gold-600 font-medium hover:underline disabled:opacity-50 cursor-pointer"
           >
-            Resend OTP
+            Resend WhatsApp code
           </button>
         )}
-      </div>
-
-      <div className="mt-6 text-center">
-        <Link to="/signup" className="text-sm text-dark-500 hover:text-dark-700">← Back to sign up</Link>
+        <div>
+          <Link to="/signup" className="text-xs text-dark-500 hover:text-dark-700">← Back to sign up</Link>
+        </div>
       </div>
     </div>
   )
