@@ -4,7 +4,8 @@ import logging
 import os
 import re
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -307,7 +308,7 @@ app.add_middleware(
 # ── Global exception handler ─────────────────────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    if isinstance(exc, HTTPException):
+    if isinstance(exc, (HTTPException, StarletteHTTPException)):
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.detail},
@@ -376,6 +377,7 @@ async def health_check():
             "gemini": settings.gemini_configured,
             "resend": settings.resend_configured,
             "sms": settings.sms_configured,
+            "whatsapp": settings.whatsapp_configured,
             "payment": settings.payment_configured,
             "storage": settings.storage_configured,
             "kyc": settings.kyc_configured,
