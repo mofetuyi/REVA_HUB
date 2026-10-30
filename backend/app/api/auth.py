@@ -320,7 +320,7 @@ async def signup(
             is_seller=False,
             is_phone_verified=False,
             is_email_verified=False,
-            kyc_status=KYCStatus.unverified,
+            kyc_status=KYCStatus.not_started,
             current_mode=UserMode.buyer,
             policy_version_accepted=settings.CURRENT_POLICY_VERSION,
             policy_accepted_at=datetime.now(timezone.utc),
