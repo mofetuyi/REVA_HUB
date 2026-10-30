@@ -198,18 +198,14 @@ async def run_listing_ai_review(listing_id_str: str):
         )
         db.add(review_result)
 
-        if decision == "approve":
-            listing.moderation_status = ModerationStatus.approved
-            listing.status = ListingStatus.active
-        elif decision == "reject":
-            listing.moderation_status = ModerationStatus.rejected
-            listing.moderation_notes = "; ".join(review.get("reasons", ["Rejected by policy check"]))
-        else:
-            listing.moderation_status = ModerationStatus.pending
-            listing.moderation_notes = "Flagged for human admin review: " + "; ".join(review.get("reasons", []))
+        # Listings are created straight and live without waiting for approval
+        listing.moderation_status = ModerationStatus.approved
+        listing.status = ListingStatus.active
+        if decision != "approve":
+            listing.moderation_notes = "AI advisory notes: " + "; ".join(review.get("reasons", []))
 
         await db.commit()
-        logger.info("Listing %s AI review finished with decision: %s", listing_id, decision)
+        logger.info("Listing %s AI review finished with decision: %s (listing remains active & live)", listing_id, decision)
 
 
 DEFAULT_CATEGORY_PHOTOS = {
@@ -335,7 +331,7 @@ async def browse_listings(
     try:
         filters = [
             Listing.status == ListingStatus.active,
-            Listing.moderation_status == ModerationStatus.approved,
+            Listing.moderation_status != ModerationStatus.rejected,
             Listing.expires_at > datetime.now(timezone.utc),
         ]
 

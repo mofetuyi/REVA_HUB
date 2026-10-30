@@ -549,10 +549,17 @@ async def refresh_token(
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    # Verify stored token matches
-    stored = await redis.get(f"refresh:{user_id}")
-    if not stored or stored != req.refresh_token:
-        raise HTTPException(status_code=401, detail="Refresh token expired or revoked")
+    # Verify stored token if present in Redis cache. If Redis was restarted / evicted, allow valid cryptographically signed unexpired token
+    try:
+        stored = await redis.get(f"refresh:{user_id}")
+        if stored and stored != req.refresh_token:
+            raise HTTPException(status_code=401, detail="Refresh token has been revoked. Please sign in again.")
+        # Refresh cache entry
+        await store_refresh_token(user_id, req.refresh_token, redis)
+    except HTTPException:
+        raise
+    except Exception as re_err:
+        logger.warning("Redis check skipped on refresh: %s", re_err)
 
     access_token = create_access_token(user_id)
     return {"access_token": access_token, "token_type": "bearer"}

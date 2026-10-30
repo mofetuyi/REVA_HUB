@@ -22,7 +22,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle 401 – try to refresh without disruptively kicking users out of public pages
+// Handle 401 – try to refresh seamlessly without breaking user experience
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -38,12 +38,18 @@ api.interceptors.response.use(
           if (original.headers) original.headers.Authorization = `Bearer ${newToken}`
           return api(original)
         } catch {
-          // Only redirect if explicitly on a private account management route
+          // Token refresh failed completely - clear invalid auth state
+          useAuthStore.getState().logout()
           const path = window.location.pathname
-          if (path.startsWith('/admin') || path.startsWith('/my-') || path.startsWith('/settings') || path.startsWith('/staff/dashboard')) {
-            useAuthStore.getState().logout()
-            window.location.href = '/login'
+          if (path.startsWith('/admin') || path.startsWith('/my-') || path.startsWith('/settings') || path.startsWith('/staff/dashboard') || path.startsWith('/listings/new')) {
+            window.location.href = `/login?from=${encodeURIComponent(path)}`
           }
+        }
+      } else {
+        const path = window.location.pathname
+        if (path.startsWith('/admin') || path.startsWith('/my-') || path.startsWith('/settings') || path.startsWith('/staff/dashboard') || path.startsWith('/listings/new')) {
+          useAuthStore.getState().logout()
+          window.location.href = `/login?from=${encodeURIComponent(path)}`
         }
       }
     }

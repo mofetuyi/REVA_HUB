@@ -104,18 +104,31 @@ export default function CreateListingPage() {
     try {
       let updatedPhotos = [...photos]
       for (const file of Array.from(files)) {
-        const formData = new FormData()
-        formData.append('file', file)
-        const res = await api.post('/listings/upload-photo', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-        if (res.data?.url) {
-          updatedPhotos.push(res.data.url)
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          const res = await api.post('/listings/upload-photo', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          })
+          if (res.data?.url) {
+            updatedPhotos.push(res.data.url)
+            continue
+          }
+        } catch (uploadErr) {
+          console.warn('Backend photo upload failed, converting locally:', uploadErr)
+          // Fallback: read file directly as data URL so user is never blocked
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
+          updatedPhotos.push(dataUrl)
         }
       }
       setPhotos(updatedPhotos)
       setValue('photo_urls', updatedPhotos, { shouldValidate: true })
-      toast.success('Photo uploaded successfully!')
+      toast.success('Photo added successfully!')
     } catch (err) {
       toast.error(extractError(err))
     } finally {
