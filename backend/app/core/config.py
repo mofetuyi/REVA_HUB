@@ -55,12 +55,12 @@ class Settings(BaseSettings):
     SMS_SENDER_ID: str = "Reva"
 
     # ── WhatsApp Verification ─────────────────────────────────────────────────
-    WHATSAPP_PROVIDER: str = "meta"  # "meta" | "wsapi"
+    WHATSAPP_PROVIDER: str = "wsapi"  # "meta" | "wsapi"
     WHATSAPP_API_KEY: Optional[str] = "sk_hXOvkP3W3U-msS9u7st6jA"  # WSAPI key or Meta Bearer Token
     WHATSAPP_INSTANCE_ID: Optional[str] = "ins_7lOt9mloPIEf"
     WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None  # Meta Graph API Phone Number ID
     WHATSAPP_SENDER_PHONE: str = "2347076630396"
-    WHATSAPP_GATEWAY_URL: Optional[str] = None
+    WHATSAPP_GATEWAY_URL: Optional[str] = "https://api.wsapi.chat/messages/text"
 
     # ── KYC ───────────────────────────────────────────────────────────────────
     KYC_PROVIDER_URL: Optional[str] = None

@@ -900,3 +900,128 @@ async def whatsapp_verify_otp(
         "phone": clean_phone,
     }
 
+
+# ── Password Reset via WhatsApp ──────────────────────────────────────────
+
+class ResetPasswordSendOTPRequest(BaseModel):
+    phone: str
+
+
+class ResetPasswordConfirmRequest(BaseModel):
+    phone: str
+    otp: str
+    new_password: str
+
+
+@router.post("/reset-password/send-otp")
+async def reset_password_send_otp(
+    req: ResetPasswordSendOTPRequest,
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis),
+):
+    """Send a 6-digit WhatsApp OTP code to reset user password."""
+    clean_phone = normalize_phone_number(req.phone)
+    if not clean_phone or len(clean_phone) < 10:
+        raise HTTPException(status_code=400, detail="Please enter a valid phone number")
+
+    local_phone = "0" + clean_phone[3:] if clean_phone.startswith("234") else clean_phone
+    raw_input = req.phone.strip()
+    phone_variants = {clean_phone, local_phone, raw_input, f"+{clean_phone}"}
+
+    result = await db.execute(select(User).where(or_(*[User.phone == p for p in phone_variants])))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="No Reva Hub account found with this phone number. Please check the number or sign up."
+        )
+
+    throttle_key = f"reset_password_otp_throttle:{clean_phone}"
+    cooldown = await redis.get(throttle_key)
+    if cooldown:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait 30 seconds before requesting another WhatsApp verification code."
+        )
+
+    await redis.setex(throttle_key, 30, "1")
+    success, otp, msg, direct_link = await send_whatsapp_otp(clean_phone, redis, purpose="password_reset")
+
+    return {
+        "success": True,
+        "message": f"A 6-digit reset code has been sent to your WhatsApp (+{clean_phone}).",
+        "phone": clean_phone,
+        "whatsapp_link": direct_link,
+        "user_name": user.name,
+    }
+
+
+@router.post("/reset-password/confirm")
+async def reset_password_confirm(
+    req: ResetPasswordConfirmRequest,
+    db: AsyncSession = Depends(get_db),
+    redis = Depends(get_redis),
+):
+    """Verify WhatsApp OTP and update user password. Automatically logs user in."""
+    if not req.new_password or len(req.new_password.strip()) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    clean_phone = normalize_phone_number(req.phone)
+    valid, err_msg = await verify_whatsapp_otp_code(clean_phone, req.otp.strip(), redis)
+    if not valid:
+        valid2, _ = await verify_whatsapp_otp_code(req.phone.strip(), req.otp.strip(), redis)
+        if not valid2:
+            raise HTTPException(status_code=400, detail=err_msg or "Invalid or expired WhatsApp verification code")
+
+    local_phone = "0" + clean_phone[3:] if clean_phone.startswith("234") else clean_phone
+    raw_input = req.phone.strip()
+    phone_variants = {clean_phone, local_phone, raw_input, f"+{clean_phone}"}
+
+    result = await db.execute(select(User).where(or_(*[User.phone == p for p in phone_variants])))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found")
+
+    user.hashed_password = hash_password(req.new_password.strip())
+    user.is_phone_verified = True
+    user.is_active = True
+    user.last_login_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(user)
+
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(str(user.id))
+    try:
+        await store_refresh_token(str(user.id), refresh_token, redis)
+    except Exception as re_err:
+        logger.warning("Could not store refresh token: %s", re_err)
+
+    user_dict = {
+        "id": str(user.id),
+        "name": user.name,
+        "email": user.email,
+        "phone": user.phone or "",
+        "avatar_url": user.avatar_url,
+        "reva_id": user.reva_id,
+        "kyc_status": user.kyc_status.value if hasattr(user.kyc_status, "value") else str(user.kyc_status),
+        "account_type": user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type),
+        "state": user.state,
+        "lga": user.lga,
+        "is_buyer": user.is_buyer,
+        "is_seller": user.is_seller,
+        "is_admin": user.is_admin,
+        "is_staff": user.is_staff,
+        "is_premium": bool(user.is_premium),
+        "current_mode": user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode),
+    }
+
+    return {
+        "success": True,
+        "message": "Password reset successfully! You are now logged in to Reva Hub.",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user_dict,
+    }
+
+

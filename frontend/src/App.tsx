@@ -76,6 +76,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 import SignupPage from './pages/auth/SignupPage'
 import VerifyOTPPage from './pages/auth/VerifyOTPPage'
 import LoginPage from './pages/auth/LoginPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 
 // ── Marketplace ───────────────────────────────────────────────────────────────
 import BrowsePage from './pages/marketplace/BrowsePage'
@@ -171,6 +172,8 @@ export default function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="signup" element={<SignupPage />} />
           <Route path="verify-otp" element={<VerifyOTPPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reset-password" element={<ForgotPasswordPage />} />
         </Route>
 
         {/* ── Admin layout ──────────────────────────────────────────────────── */}

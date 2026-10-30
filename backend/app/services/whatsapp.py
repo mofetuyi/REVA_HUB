@@ -28,8 +28,9 @@ def normalize_phone_number(phone: str) -> str:
 async def send_whatsapp_otp(
     phone: str,
     redis_client,
+    purpose: str = "verification",
 ) -> Tuple[bool, str, str, str]:
-    """Generate a 6-digit OTP, store in Redis, and dispatch via WSAPI WhatsApp API.
+    """Generate a 6-digit OTP, store in Redis, and dispatch via WSAPI/Meta WhatsApp API.
 
     Returns:
         (success, otp_code, message, direct_whatsapp_link)
@@ -38,12 +39,21 @@ async def send_whatsapp_otp(
     otp = await generate_and_store_otp(clean_phone, redis_client)
 
     sender_phone = normalize_phone_number(settings.WHATSAPP_SENDER_PHONE or "2347076630396")
-    msg_text = (
-        f"🌿 *Reva Hub Verification*\n\n"
-        f"Your verification code is: *{otp}*\n\n"
-        f"Valid for 10 minutes. Do not share this code with anyone.\n"
-        f"https://reva-marketplace.com.ng"
-    )
+    if purpose == "password_reset":
+        msg_text = (
+            f"🔐 *Reva Hub Password Reset*\n\n"
+            f"Your verification code is: *{otp}*\n\n"
+            f"Use this code to set your new password. Valid for 10 minutes.\n"
+            f"If you did not request this, please disregard.\n"
+            f"https://reva-marketplace.com.ng"
+        )
+    else:
+        msg_text = (
+            f"🌿 *Reva Hub Verification*\n\n"
+            f"Your verification code is: *{otp}*\n\n"
+            f"Valid for 10 minutes. Do not share this code with anyone.\n"
+            f"https://reva-marketplace.com.ng"
+        )
 
     encoded_msg = urllib.parse.quote(msg_text)
     direct_whatsapp_link = f"https://wa.me/{sender_phone}?text={encoded_msg}"

@@ -98,13 +98,25 @@ export default function LoginPage() {
           {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone.message}</p>}
         </div>
 
-        <Input
-          label="Password"
-          type="password"
-          required
-          {...register('password')}
-          error={errors.password?.message}
-        />
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm font-medium text-dark-800">Password</label>
+            <Link
+              to="/forgot-password"
+              className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold hover:underline"
+            >
+              Forgot password? Reset via WhatsApp
+            </Link>
+          </div>
+          <input
+            type="password"
+            placeholder="••••••••"
+            required
+            className="w-full px-3 py-2 border border-cream-200 bg-white text-dark-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-400"
+            {...register('password')}
+          />
+          {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password.message}</p>}
+        </div>
 
         <Button type="submit" fullWidth loading={loginMutation.isPending}>
           Log in
