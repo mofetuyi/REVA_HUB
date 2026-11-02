@@ -730,7 +730,7 @@ function RatingModal({ tutorialId, onClose }: { tutorialId: string; onClose: () 
 
 
 function InteractiveCreatorSection({ tutorial }: { tutorial: Tutorial }) {
-  const { user, activatePremium } = useAuthStore()
+  const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const [formOpen, setFormOpen] = useState(false)
   const [sessionType, setSessionType] = useState<'qa_priority' | 'critique' | 'one_on_one_call'>('qa_priority')
@@ -763,12 +763,11 @@ function InteractiveCreatorSection({ tutorial }: { tutorial: Tutorial }) {
 
   const paystackPremiumUrl = `https://paystack.shop/pay/reva?${premiumParams.toString()}`
 
-  const handleQuickActivate = () => {
+  const handleOpenPaystack = () => {
     try {
       navigator.clipboard.writeText(revaId)
     } catch {}
-    activatePremium(30)
-    toast.success(`🎉 REVA ID ${revaId} copied & 30-Day Premium active! Opening Paystack...`, { duration: 4500 })
+    toast.success(`📋 REVA ID ${revaId} copied to clipboard! Complete payment on Paystack, then verify at /premium.`, { duration: 5000 })
   }
 
   const { data } = useQuery({
@@ -870,7 +869,7 @@ function InteractiveCreatorSection({ tutorial }: { tutorial: Tutorial }) {
               href={paystackPremiumUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={handleQuickActivate}
+              onClick={handleOpenPaystack}
               className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-600 hover:to-amber-600 text-dark-950 font-bold text-xs rounded-xl shadow-md transition-all hover:scale-[1.02] cursor-pointer"
             >
               <Crown className="w-4 h-4" />
@@ -923,7 +922,7 @@ function InteractiveCreatorSection({ tutorial }: { tutorial: Tutorial }) {
               href={paystackPremiumUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={handleQuickActivate}
+              onClick={handleOpenPaystack}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-gold-500 hover:bg-gold-600 text-dark-950 font-bold text-xs rounded-xl shadow-md transition-all hover:scale-[1.02] cursor-pointer"
             >
               <Crown className="w-4 h-4" />

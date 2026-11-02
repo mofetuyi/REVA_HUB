@@ -13,7 +13,6 @@ interface AuthState {
   setUser: (user: User) => void
   setAccessToken: (token: string) => void
   switchMode: (mode: UserMode) => void
-  activatePremium: (days?: number) => void
   isAuthenticated: boolean
 }
 
@@ -52,22 +51,6 @@ export const useAuthStore = create<AuthState>()(
         if (user) {
           set({ user: { ...user, current_mode: mode } })
         }
-      },
-
-      activatePremium: (days = 30) => {
-        const current = get().user
-        if (!current) return
-        const now = new Date()
-        const currentExpiry = current.premium_expires_at ? new Date(current.premium_expires_at) : null
-        const base = currentExpiry && currentExpiry > now ? currentExpiry : now
-        const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000)
-        const updatedUser = {
-          ...current,
-          is_premium: true,
-          premium_expires_at: newExpiry.toISOString(),
-          reva_id: current.reva_id || `REVA-${(current.id || 'DEMO').toUpperCase().replace(/-/g, '')}`,
-        }
-        set({ user: updatedUser })
       },
     }),
     {

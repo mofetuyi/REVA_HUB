@@ -83,16 +83,18 @@ async def payment_webhook(
 
         # ── Check if this is a Premium activation ───────────────────────────
         reva_id = _extract_reva_id_from_metadata(data)
-        if reva_id and reva_id.startswith("REVA-"):
+
+        # Check if marketplace order exists with this reference
+        order_res = await db.execute(select(Order).where(Order.payment_reference == reference))
+        order = order_res.scalar_one_or_none()
+
+        if not order and (reva_id or amount_kobo >= (settings.PREMIUM_AMOUNT_KOBO or 300000)):
             await _handle_premium_activation(
-                db, reference, reva_id, amount_kobo, background_tasks
+                db, reference, reva_id, amount_kobo, background_tasks, data
             )
             return {"status": "ok"}
 
         # ── Otherwise treat as marketplace order payment ─────────────────────
-        result = await db.execute(select(Order).where(Order.payment_reference == reference))
-        order = result.scalar_one_or_none()
-
         if not order:
             logger.warning("No order found for payment reference: %s", reference)
             return {"status": "ignored"}
@@ -162,34 +164,27 @@ async def payment_webhook(
 async def _handle_premium_activation(
     db: AsyncSession,
     reference: str,
-    reva_id: str,
+    reva_id: str | None,
     amount_kobo: int,
     background_tasks: BackgroundTasks,
+    data: dict | None = None,
 ) -> None:
     """
-    Activate Reva Premium for the user matching reva_id.
+    Activate Reva Premium for the user matching reva_id or customer info.
 
     Security checks:
-    1. PREMIUM_AMOUNT_KOBO must be configured — activation is blocked if not set.
-    2. Amount in webhook must match configured amount exactly.
-    3. Transaction verified server-side with Paystack.
-    4. Idempotent: same reference cannot activate Premium twice.
-    5. Repeat payment extends the expiry period (no double-charge loss).
+    1. Minimum payment amount must be at least configured amount (₦3,000 / 300,000 kobo).
+    2. Transaction verified server-side with Paystack.
+    3. Idempotent: same reference cannot activate Premium twice.
+    4. Repeat payment extends the expiry period (no double-charge loss).
     """
-    # Guard: amount must be configured
-    if not settings.premium_amount_configured:
-        logger.error(
-            "PREMIUM_AMOUNT_KOBO not configured. Refusing Premium activation for ref=%s. "
-            "Set PREMIUM_AMOUNT_KOBO in your environment to enable Premium payments.",
-            reference,
-        )
-        return
+    min_amount = settings.PREMIUM_AMOUNT_KOBO or 300000
 
-    # Guard: amount must match
-    if amount_kobo != settings.PREMIUM_AMOUNT_KOBO:
+    # Guard: amount must be at least required minimum
+    if amount_kobo < min_amount:
         logger.warning(
-            "Premium payment amount mismatch for ref=%s: expected %d kobo, got %d kobo. Ignoring.",
-            reference, settings.PREMIUM_AMOUNT_KOBO, amount_kobo,
+            "Premium payment amount mismatch for ref=%s: expected >= %d kobo, got %d kobo. Ignoring.",
+            reference, min_amount, amount_kobo,
         )
         return
 
@@ -202,20 +197,37 @@ async def _handle_premium_activation(
             return
         # Double-check amount in verification response
         verified_amount = vdata.get("amount", 0)
-        if verified_amount != settings.PREMIUM_AMOUNT_KOBO:
+        if verified_amount < min_amount:
             logger.warning(
-                "Premium payment verified amount mismatch for ref=%s: expected %d, got %d",
-                reference, settings.PREMIUM_AMOUNT_KOBO, verified_amount,
+                "Premium payment verified amount too low for ref=%s: expected >= %d, got %d",
+                reference, min_amount, verified_amount,
             )
             return
     else:
         logger.warning("PAYMENT_SECRET_KEY not configured; skipping server-side verification for ref=%s", reference)
 
-    # Find user by reva_id
-    result = await db.execute(select(User).where(User.reva_id == reva_id))
-    user = result.scalar_one_or_none()
+    # Find user by reva_id first
+    user = None
+    if reva_id:
+        result = await db.execute(select(User).where(User.reva_id == reva_id))
+        user = result.scalar_one_or_none()
+
+    # Fallback to customer email or phone
+    if not user and data:
+        customer = data.get("customer", {})
+        c_email = customer.get("email")
+        c_phone = customer.get("phone")
+        if c_email:
+            result = await db.execute(select(User).where(User.email == c_email))
+            user = result.scalar_one_or_none()
+        if not user and c_phone:
+            raw_digits = "".join(filter(str.isdigit, c_phone))
+            if len(raw_digits) >= 10:
+                result = await db.execute(select(User).where(User.phone.like(f"%{raw_digits[-10:]}")))
+                user = result.scalar_one_or_none()
+
     if not user:
-        logger.warning("Premium activation: no user found with reva_id=%s", reva_id)
+        logger.warning("Premium activation: no user found for ref=%s (reva_id=%s)", reference, reva_id)
         return
 
     # Idempotency: same reference must not activate Premium twice

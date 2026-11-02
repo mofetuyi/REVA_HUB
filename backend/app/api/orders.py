@@ -1,5 +1,6 @@
 """Orders API routes."""
 
+import uuid
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -289,8 +290,33 @@ async def direct_checkout(
     buyer_phone = req.buyer_phone or current_user.phone or ""
     buyer_address = req.buyer_delivery_address or ""
 
-    order_status = OrderStatus.funded if req.payment_reference else OrderStatus.payment_pending
-    ref = req.payment_reference or f"reva_{uuid.uuid4().hex[:12]}"
+    order_status = OrderStatus.payment_pending
+    ref = f"reva_{uuid.uuid4().hex[:12]}"
+
+    if req.payment_reference:
+        claimed_ref = req.payment_reference.strip()
+        dup = (await db.execute(select(Order).where(Order.payment_reference == claimed_ref))).scalar_one_or_none()
+        if dup:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This payment reference has already been claimed by another order.",
+            )
+        from app.services.payment import verify_transaction
+        if settings.payment_configured:
+            try:
+                v_res = await verify_transaction(claimed_ref)
+                v_data = v_res.get("data", {}) if isinstance(v_res, dict) else {}
+                expected_kobo = int(round(total_amount * 100))
+                if v_data.get("status") == "success" and v_data.get("amount", 0) >= expected_kobo:
+                    order_status = OrderStatus.funded
+                    ref = claimed_ref
+                else:
+                    ref = claimed_ref
+            except Exception as e:
+                logger.warning("Paystack verify error during checkout for ref %s: %s", claimed_ref, e)
+                ref = claimed_ref
+        else:
+            ref = claimed_ref
 
     order = Order(
         listing_id=listing.id,
@@ -345,6 +371,11 @@ async def confirm_delivery(
         raise HTTPException(status_code=404, detail="Order not found")
     if str(order.buyer_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Only buyer can confirm delivery")
+    if order.status not in (OrderStatus.funded, OrderStatus.in_transit, OrderStatus.delivered):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot confirm delivery for order in '{order.status.value}' status. Order must be funded or delivered before releasing payment.",
+        )
 
     now = datetime.now(timezone.utc)
     order.delivery_confirmed_at = now

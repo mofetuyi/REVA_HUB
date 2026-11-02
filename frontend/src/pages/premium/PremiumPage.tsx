@@ -142,10 +142,22 @@ function SectionHeading({ icon, label }: { icon: React.ReactNode; label: string 
 
 export default function PremiumPage() {
   const navigate = useNavigate()
-  const { user, isAuthenticated, activatePremium } = useAuthStore()
+  const { user, isAuthenticated, setUser } = useAuthStore()
   const [showModal, setShowModal] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [referenceInput, setReferenceInput] = useState('')
+
+  // Sync user state on mount to reflect latest server subscription status
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      api.get('/auth/me')
+        .then((res) => {
+          if (res.data) setUser(res.data)
+        })
+        .catch(() => {})
+    }
+  }, [isAuthenticated, setUser])
 
   const isPremium = isAuthenticated && user?.is_premium
   const expiresAt = user?.premium_expires_at
@@ -179,26 +191,50 @@ export default function PremiumPage() {
   }
 
   const handleOpenActivation = () => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in or create an account to activate Premium.')
+      navigate('/login')
+      return
+    }
     try {
       navigator.clipboard.writeText(revaId)
     } catch {}
     setShowModal(true)
   }
 
-  const handleActivateOneMonth = async () => {
+  const handleOpenPaystack = () => {
     try {
-      await navigator.clipboard.writeText(revaId)
+      navigator.clipboard.writeText(revaId)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     } catch {}
-    setLoading(true)
+    toast.success(`📋 REVA ID ${revaId} copied! Opening Paystack...`, { duration: 3500 })
+    window.open(paystackPremiumUrl, '_blank')
+  }
+
+  const handleVerifyPayment = async () => {
+    setVerifying(true)
     try {
-      await api.post('/auth/premium/activate-month')
-    } catch {
-      // Graceful local activation fallback
+      const res = await api.post('/auth/premium/verify', {
+        reference: referenceInput.trim() || undefined,
+      })
+      if (res.data?.user) {
+        setUser(res.data.user)
+      } else {
+        const meRes = await api.get('/auth/me')
+        if (meRes.data) setUser(meRes.data)
+      }
+      toast.success(res.data?.message || '🎉 Reva Premium subscription active! 👑', { duration: 5000 })
+      setShowModal(false)
+      setReferenceInput('')
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.detail ||
+        'Could not verify payment with Paystack yet. Please confirm payment was successful or check your reference.'
+      toast.error(msg, { duration: 6000 })
+    } finally {
+      setVerifying(false)
     }
-    activatePremium(30)
-    setLoading(false)
-    setShowModal(false)
-    toast.success(`🎉 REVA ID ${revaId} copied & Premium active! Opening Paystack...`, { duration: 4000 })
   }
 
   return (
@@ -484,28 +520,51 @@ export default function PremiumPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <a
-                href={paystackPremiumUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleActivateOneMonth}
+            <div className="space-y-4 pt-2">
+              <button
+                type="button"
+                onClick={handleOpenPaystack}
                 className="w-full py-3 px-4 bg-gold-500 hover:bg-gold-400 text-dark-900 font-bold text-sm rounded-xl transition-all shadow-lg shadow-gold-500/25 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Pay on Paystack (Autofills Name & Reva ID)</span>
+                <span>1. Pay ₦3,000 on Paystack</span>
                 <ExternalLink className="w-4 h-4" />
-              </a>
+              </button>
 
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={handleActivateOneMonth}
-                  disabled={loading}
-                  className="text-xs text-cream-400 hover:text-gold-400 underline cursor-pointer"
-                >
-                  Already paid? Click to sync 1 month activation
-                </button>
+              <div className="border-t border-dark-700/80 pt-3 space-y-2">
+                <label className="block text-xs font-semibold text-cream-300">
+                  2. Already Paid? Verify & Activate Instantly
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={referenceInput}
+                    onChange={(e) => setReferenceInput(e.target.value)}
+                    placeholder="Enter Paystack Ref (e.g. T123456789) or leave empty"
+                    className="flex-1 bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-xs text-cream-100 placeholder-cream-500 font-mono focus:outline-none focus:border-gold-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyPayment}
+                    disabled={verifying}
+                    className="px-4 py-2 bg-dark-700 hover:bg-dark-600 border border-gold-500/40 text-gold-400 hover:text-gold-300 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {verifying ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5 text-gold-400" />
+                        <span>Verify Payment</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-[11px] text-cream-400 leading-normal">
+                  Our server verifies the transaction directly with Paystack before activating your 30-day Premium membership.
+                </p>
               </div>
             </div>
           </div>

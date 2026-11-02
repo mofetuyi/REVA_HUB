@@ -585,6 +585,10 @@ async def get_me(
     is_premium_active = bool(current_user.is_premium)
     if current_user.premium_expires_at and current_user.premium_expires_at < now:
         is_premium_active = False
+        if current_user.is_premium:
+            current_user.is_premium = False
+            await db.commit()
+            await db.refresh(current_user)
 
     return {
         "id": str(current_user.id),
@@ -759,38 +763,193 @@ async def resend_otp(
     }
 
 
-@router.post("/premium/activate-month")
-@router.post("/me/activate-premium")
-async def activate_premium_one_month(
+class PremiumVerifyPaymentRequest(BaseModel):
+    reference: Optional[str] = None
+
+
+@router.post("/premium/verify")
+@router.post("/premium/verify-payment")
+async def verify_premium_payment(
+    req: PremiumVerifyPaymentRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Admin-only manual activation or payment confirmation."""
-    if not current_user.is_admin:
+    """Secure Paystack transaction verification for Reva Premium subscriptions.
+
+    Guarantees:
+    1. Transaction must be confirmed with Paystack (status == 'success').
+    2. Payment amount must be >= configured subscription price (NGN 3,000).
+    3. Payment reference cannot be double-spent or reused by different accounts.
+    4. If no reference is provided, queries database to check if webhook has already credited the account.
+    """
+    now = datetime.now(timezone.utc)
+    reference = req.reference.strip() if req.reference else None
+
+    # Scenario 1: Reference provided - verify directly with Paystack API
+    if reference:
+        from app.services.payment import verify_transaction
+        
+        # Guard: Check if reference was already claimed by another user
+        dup_stmt = select(User).where(
+            (User.premium_payment_reference == reference) & (User.id != current_user.id)
+        )
+        dup = (await db.execute(dup_stmt)).scalar_one_or_none()
+        if dup:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This Paystack payment reference has already been claimed by another account.",
+            )
+
+        # Idempotent skip if already credited to this user
+        if current_user.premium_payment_reference == reference and current_user.is_premium and (current_user.premium_expires_at and current_user.premium_expires_at > now):
+            return {
+                "success": True,
+                "message": "Your Reva Premium subscription is active! 👑",
+                "is_premium": True,
+                "premium_expires_at": current_user.premium_expires_at.isoformat(),
+                "user": {
+                    "id": str(current_user.id),
+                    "name": current_user.name,
+                    "email": current_user.email,
+                    "phone": current_user.phone,
+                    "reva_id": current_user.reva_id,
+                    "is_premium": True,
+                    "premium_expires_at": current_user.premium_expires_at.isoformat(),
+                }
+            }
+
+        # Server-side verification with Paystack
+        try:
+            v_res = await verify_transaction(reference)
+        except Exception as exc:
+            logger.error("Paystack verification call error for %s: %s", reference, exc)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Unable to connect to Paystack payment gateway. Please try again in a few moments.",
+            )
+
+        v_data = v_res.get("data", {}) if isinstance(v_res, dict) else {}
+        paystack_status = v_data.get("status")
+
+        if paystack_status != "success":
+            detail_msg = v_res.get("message") or f"Payment was not successful (status: {paystack_status or 'unknown'})"
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail_msg)
+
+        # Verify amount (Paystack delivers amounts in kobo)
+        paid_amount_kobo = v_data.get("amount", 0)
+        expected_kobo = settings.PREMIUM_AMOUNT_KOBO or 300000  # NGN 3,000 = 300,000 kobo
+        if paid_amount_kobo < expected_kobo:
+            logger.warning("Paystack amount too low for ref %s: got %s, expected %s", reference, paid_amount_kobo, expected_kobo)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Payment amount (NGN {paid_amount_kobo / 100:,.2f}) is less than required Premium fee (NGN {expected_kobo / 100:,.2f}).",
+            )
+
+        # Verify REVA ID metadata if available
+        meta = v_data.get("metadata", {}) or {}
+        custom_fields = meta.get("custom_fields", []) if isinstance(meta, dict) else []
+        claimed_reva_id = None
+        for f in custom_fields:
+            if f.get("variable_name") in ["reva_id", "reva_id_number", "REVA_ID_number"] or f.get("display_name") in [settings.PREMIUM_REVA_ID_FIELD, "REVA ID number", "Reva ID"]:
+                val = str(f.get("value", "")).strip()
+                if val:
+                    claimed_reva_id = val
+                    break
+        if not claimed_reva_id and isinstance(meta, dict):
+            claimed_reva_id = str(meta.get("reva_id", "")).strip() or None
+
+        if claimed_reva_id and current_user.reva_id and claimed_reva_id.upper() != current_user.reva_id.upper():
+            logger.warning("Reva ID mismatch for ref %s: claimed %s vs user %s", reference, claimed_reva_id, current_user.reva_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"This payment was designated for a different Reva ID ({claimed_reva_id}).",
+            )
+
+        # Grant 30 days of Premium
+        duration_days = settings.PREMIUM_DURATION_DAYS or 30
+        base = current_user.premium_expires_at if (current_user.premium_expires_at and current_user.premium_expires_at > now) else now
+        current_user.is_premium = True
+        current_user.premium_activated_at = now
+        current_user.premium_expires_at = base + timedelta(days=duration_days)
+        current_user.premium_payment_reference = reference
+        if not current_user.reva_id:
+            current_user.reva_id = f"REVA-{str(current_user.id).upper()}"
+        await db.commit()
+        await db.refresh(current_user)
+
+        logger.info("Paystack payment verified & Premium activated for %s (ref=%s)", current_user.id, reference)
+        return {
+            "success": True,
+            "message": f"🎉 Payment verified! Your Reva Premium is now active for {duration_days} days.",
+            "is_premium": True,
+            "premium_expires_at": current_user.premium_expires_at.isoformat(),
+            "user": {
+                "id": str(current_user.id),
+                "name": current_user.name,
+                "email": current_user.email,
+                "phone": current_user.phone,
+                "reva_id": current_user.reva_id,
+                "is_premium": True,
+                "premium_expires_at": current_user.premium_expires_at.isoformat(),
+            }
+        }
+
+    # Scenario 2: No reference provided - check database to see if Paystack webhook has activated it
+    if current_user.is_premium and current_user.premium_expires_at and current_user.premium_expires_at > now:
+        return {
+            "success": True,
+            "message": "Your Reva Premium subscription is active! 👑",
+            "is_premium": True,
+            "premium_expires_at": current_user.premium_expires_at.isoformat(),
+            "user": {
+                "id": str(current_user.id),
+                "name": current_user.name,
+                "email": current_user.email,
+                "phone": current_user.phone,
+                "reva_id": current_user.reva_id,
+                "is_premium": True,
+                "premium_expires_at": current_user.premium_expires_at.isoformat(),
+            }
+        }
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="No confirmed Paystack payment found for your account yet. Please complete checkout on Paystack or enter your payment reference.",
+    )
+
+
+@router.post("/premium/admin-activate")
+async def admin_manual_premium_activation(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Platform administrator only: manual Premium activation for testing/support."""
+    if not (current_user.is_admin or current_user.is_staff):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Direct premium activation is reserved for confirmed Paystack payments. Please subscribe at /premium.",
+            detail="Unauthorized. Only platform administrators can manually toggle Premium without payment.",
         )
     now = datetime.now(timezone.utc)
     base = current_user.premium_expires_at if (current_user.premium_expires_at and current_user.premium_expires_at > now) else now
     current_user.is_premium = True
+    current_user.premium_activated_at = now
     current_user.premium_expires_at = base + timedelta(days=30)
     if not current_user.reva_id:
         current_user.reva_id = f"REVA-{str(current_user.id).upper()}"
     await db.commit()
     await db.refresh(current_user)
     return {
-        "message": "Premium activated for 1 month (30 days) successfully!",
-        "is_premium": current_user.is_premium,
+        "success": True,
+        "message": "Admin manual Premium activation successful (30 days).",
+        "is_premium": True,
         "premium_expires_at": current_user.premium_expires_at.isoformat(),
-        "reva_id": current_user.reva_id,
         "user": {
             "id": str(current_user.id),
-            "phone": current_user.phone,
             "name": current_user.name,
             "email": current_user.email,
+            "phone": current_user.phone,
             "reva_id": current_user.reva_id,
-            "is_premium": current_user.is_premium,
+            "is_premium": True,
             "premium_expires_at": current_user.premium_expires_at.isoformat(),
         }
     }

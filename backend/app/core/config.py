@@ -114,12 +114,8 @@ class Settings(BaseSettings):
     VERIFIED_SELLER_DISPUTE_LOOKBACK_DAYS: int = 30
 
     # ── Reva Premium ──────────────────────────────────────────────────────────
-    # IMPORTANT: Do not invent Reva's price. Set PREMIUM_AMOUNT_KOBO to the
-    # real Paystack amount in kobo (100 kobo = ₦1). If unset, Premium activation
-    # is BLOCKED — the webhook will reject any payment rather than silently accept
-    # an unintended amount.
-    PREMIUM_AMOUNT_KOBO: Optional[int] = None   # e.g. 500000 for ₦5,000
-    PREMIUM_DURATION_DAYS: Optional[int] = None  # owner must set; no default
+    PREMIUM_AMOUNT_KOBO: int = 300000   # ₦3,000 in kobo (Paystack charges in kobo)
+    PREMIUM_DURATION_DAYS: int = 30     # 30-day subscription per billing cycle
     PREMIUM_PAGE_URL: str = "https://paystack.shop/pay/reva"
     PREMIUM_REVA_ID_FIELD: str = "REVA ID number"  # exact Paystack custom field name
 
