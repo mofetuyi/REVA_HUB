@@ -395,6 +395,19 @@ async def confirm_delivery(
 
     # Automatically send 94% of the payment to the seller via Paystack
     recipient_code = getattr(seller, "paystack_recipient_code", None) if seller else None
+    if not recipient_code and seller and getattr(seller, "bank_account_number", None) and getattr(seller, "bank_code", None):
+        try:
+            from app.services.payout import create_paystack_recipient
+            recipient_code = await create_paystack_recipient(
+                name=getattr(seller, "bank_account_name", None) or seller.name or "Reva Seller",
+                account_number=seller.bank_account_number,
+                bank_code=seller.bank_code,
+            )
+            seller.paystack_recipient_code = recipient_code
+            await db.flush()
+        except Exception as e:
+            logger.warning("Could not auto-create Paystack recipient code for seller %s: %s", seller.id, e)
+
     payout_result = await send_seller_payout(
         order_id=str(order.id),
         seller_amount_ngn=seller_proceeds,
