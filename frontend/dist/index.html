@@ -42,6 +42,12 @@
     <!-- Google Identity Services for real Google One-Tap & Sign-In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://google.com" async defer></script>
+    <script>
+      function handleCredentialResponse(response) {
+        console.log("Encoded JWT ID token: " + response.credential);
+        window.dispatchEvent(new CustomEvent("google_credential_response", { detail: response }));
+      }
+    </script>
 
     <!-- Paystack Inline Card Reader & Debitor Script -->
     <script src="https://js.paystack.co/v1/inline.js"></script>
@@ -83,8 +89,8 @@
         color: #766E65;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-CT1brNbA.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BWgQKLRB.css">
+    <script type="module" crossorigin src="/assets/index-BfX_cm5U.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CmGxlydB.css">
   </head>
   <body>
     <noscript>

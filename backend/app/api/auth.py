@@ -774,11 +774,27 @@ async def get_payment_config():
         "premium_amount_ngn": (settings.PREMIUM_AMOUNT_KOBO or 300000) / 100,
         "premium_amount_kobo": settings.PREMIUM_AMOUNT_KOBO or 300000,
         "bank_account": {
-            "bank_name": "PalmPay",
-            "bank_code": "999991",
-            "account_number": "7040396575",
-            "account_name": "GBENGA ADEBAYO ADETUNJI",
+            "bank_name": "Access Bank",
+            "bank_code": "044",
+            "account_number": "1960630256",
+            "account_name": "OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI",
         },
+        "bank_accounts": [
+            {
+                "bank_name": "Access Bank",
+                "bank_code": "044",
+                "account_number": "1960630256",
+                "account_name": "OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI",
+                "is_primary": True,
+            },
+            {
+                "bank_name": "Ecobank",
+                "bank_code": "050",
+                "account_number": "1960094404",
+                "account_name": "OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI",
+                "is_primary": False,
+            },
+        ],
     }
 
 
@@ -992,7 +1008,7 @@ async def verify_premium_transfer_ai(
     """Verifies a direct Nigerian bank transfer receipt using Google Gemini Multimodal Vision AI.
     
     Validates:
-    1. Transfer destination must be PalmPay 7040396575 (GBENGA ADEBAYO ADETUNJI).
+    1. Transfer destination must be Access Bank 1960630256 or Ecobank 1960094404 (OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI).
     2. Transferred amount must be at least ₦3,000.
     3. Status must be Successful / Completed.
     4. Reference / Session ID cannot be double-spent across different accounts.
@@ -1075,7 +1091,7 @@ async def verify_premium_transfer_ai(
     logger.info("AI Bank Transfer verified & Premium activated for %s (ref=%s)", current_user.id, ref)
     return {
         "success": True,
-        "message": f"🤖 AI Verified! ₦{amount_paid:,.2f} transfer confirmed to PalmPay {PLATFORM_BANK_DETAILS['account_number']}. Reva Premium is now active for {duration_days} days! 👑",
+        "message": f"🤖 AI Verified! ₦{amount_paid:,.2f} transfer confirmed to {PLATFORM_BANK_DETAILS['bank_name']} {PLATFORM_BANK_DETAILS['account_number']} (OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI). Reva Premium is now active for {duration_days} days! 👑",
         "is_premium": True,
         "premium_expires_at": current_user.premium_expires_at.isoformat(),
         "audit": ai_result,

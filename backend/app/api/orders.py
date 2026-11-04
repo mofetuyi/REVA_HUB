@@ -620,7 +620,7 @@ async def verify_general_receipt_ai(
     return {
         "success": True,
         "reference": ref,
-        "message": f"🤖 AI Verified! ₦{amount_paid:,.2f} transfer confirmed to PalmPay {PLATFORM_BANK_DETAILS['account_number']}.",
+        "message": f"🤖 AI Verified! ₦{amount_paid:,.2f} transfer confirmed to {PLATFORM_BANK_DETAILS['bank_name']} {PLATFORM_BANK_DETAILS['account_number']} (OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI).",
         "audit": ai_result,
     }
 
@@ -672,7 +672,7 @@ async def verify_order_transfer_ai(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Verifies a direct bank transfer to PalmPay 7040396575 using Gemini Multimodal Vision AI."""
+    """Verifies a direct bank transfer to Access Bank 1960630256 or Ecobank 1960094404 using Gemini Multimodal Vision AI."""
     result = await db.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
     if not order:
@@ -741,13 +741,13 @@ async def verify_order_transfer_ai(
         order,
         OrderStatus.funded,
         current_user.id,
-        f"Order funded via PalmPay ({PLATFORM_BANK_DETAILS['account_number']}) bank transfer verified by Reva AI. Ref: {ref}. Escrow locked."
+        f"Order funded via {PLATFORM_BANK_DETAILS['bank_name']} ({PLATFORM_BANK_DETAILS['account_number']}) bank transfer verified by Reva AI. Ref: {ref}. Escrow locked."
     )
     await db.commit()
 
     return {
         "success": True,
-        "message": f"🤖 AI Verified! ₦{amount_paid:,.2f} transfer confirmed to PalmPay {PLATFORM_BANK_DETAILS['account_number']}. Order is funded and locked in escrow!",
+        "message": f"🤖 AI Verified! ₦{amount_paid:,.2f} transfer confirmed to {PLATFORM_BANK_DETAILS['bank_name']} {PLATFORM_BANK_DETAILS['account_number']} (OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI). Order is funded and locked in escrow!",
         "status": order.status.value,
         "audit": ai_result,
         "reference": ref,

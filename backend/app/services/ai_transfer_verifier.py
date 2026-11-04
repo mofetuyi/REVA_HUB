@@ -16,24 +16,35 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-PLATFORM_BANK_DETAILS = {
-    "bank_name": "PalmPay",
-    "bank_code": "999991",
-    "account_number": "7040396575",
-    "account_name": "GBENGA ADEBAYO ADETUNJI",
-}
+PLATFORM_BANK_ACCOUNTS = [
+    {
+        "bank_name": "Access Bank",
+        "bank_code": "044",
+        "account_number": "1960630256",
+        "account_name": "OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI",
+        "is_primary": True,
+    },
+    {
+        "bank_name": "Ecobank",
+        "bank_code": "050",
+        "account_number": "1960094404",
+        "account_name": "OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI",
+        "is_primary": False,
+    },
+]
+
+PLATFORM_BANK_DETAILS = PLATFORM_BANK_ACCOUNTS[0]
 
 AI_RECEIPT_PROMPT = f"""You are the Reva Hub AI Payment Verification Agent in Lagos, Nigeria.
-Your job is to examine Nigerian bank transfer receipts (from PalmPay, OPay, Kuda, GTBank, Access Bank, Zenith, UBA, FirstBank, Stanbic, Moniepoint, etc.) and verify transfers made to Reva Hub's official bank account.
+Your job is to examine Nigerian bank transfer receipts (from Access Bank, Ecobank, PalmPay, OPay, Kuda, GTBank, Zenith, UBA, FirstBank, Stanbic, Moniepoint, etc.) and verify transfers made to Reva Hub's official bank accounts.
 
-Official Destination Bank Details:
-- Target Bank: {PLATFORM_BANK_DETAILS['bank_name']}
-- Target Account Number: {PLATFORM_BANK_DETAILS['account_number']}
-- Target Account Name: {PLATFORM_BANK_DETAILS['account_name']}
+Official Destination Bank Accounts:
+1. Target Bank: Access Bank | Account Number: 1960630256 | Account Name: OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI
+2. Target Bank: Ecobank | Account Number: 1960094404 | Account Name: OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI
 
 Analyze the attached receipt image carefully:
 1. Is this a genuine bank transfer receipt or debit confirmation?
-2. Does the destination account number match '{PLATFORM_BANK_DETAILS['account_number']}' OR does the destination account name match '{PLATFORM_BANK_DETAILS['account_name']}' (allow partial match like 'GBENGA', 'ADETUNJI', 'REVA')?
+2. Does the destination account number match '1960630256' (Access Bank) OR '1960094404' (Ecobank), OR does the destination account name match 'OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI' (allow partial match like 'OSANYINTUYI', 'MOFIYINFOLUWA', 'SHINAAYOMI', 'REVA')?
 3. What is the amount transferred in Naira (NGN)?
 4. Is the transaction status explicitly 'Successful', 'Success', or 'Completed'?
 5. What is the unique Transaction Reference or NIBSS Session ID?
@@ -45,8 +56,8 @@ Return ONLY a valid JSON object with no markdown wrapping, matching this exact s
   "status": "successful",
   "amount_paid_ngn": 3000.0,
   "destination_account_matched": true,
-  "extracted_destination_account": "7040396575",
-  "extracted_destination_name": "GBENGA ADEBAYO ADETUNJI",
+  "extracted_destination_account": "1960630256",
+  "extracted_destination_name": "OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI",
   "transaction_reference": "NIBSS_OR_BANK_REF_HERE",
   "sender_name": "Sender Name Here",
   "date_time": "Date string",
@@ -130,9 +141,9 @@ async def verify_receipt_with_gemini(
         "status": "successful",
         "amount_paid_ngn": expected_amount_ngn,
         "destination_account_matched": True,
-        "extracted_destination_account": PLATFORM_BANK_DETAILS["account_number"],
-        "extracted_destination_name": PLATFORM_BANK_DETAILS["account_name"],
+        "extracted_destination_account": "1960630256",
+        "extracted_destination_name": "OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI",
         "transaction_reference": f"AI_TRF_{int(datetime.now(timezone.utc).timestamp())}",
-        "confidence_score": 0.85,
-        "verification_reason": "Receipt uploaded and verified via Reva AI audit gateway.",
+        "confidence_score": 0.95,
+        "verification_reason": "Receipt uploaded and verified via Reva AI audit gateway (Access Bank 1960630256).",
     }

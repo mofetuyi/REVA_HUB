@@ -35,11 +35,24 @@ export default function BankTransferAIVerifier({
   const [scanStep, setScanStep] = useState<string>('')
   const [verifiedResult, setVerifiedResult] = useState<any | null>(null)
 
-  const bankDetails = {
-    bankName: 'PalmPay',
-    accountNumber: '7040396575',
-    accountName: 'GBENGA ADEBAYO ADETUNJI',
-  }
+  const [selectedBankIdx, setSelectedBankIdx] = useState(0)
+
+  const bankAccounts = [
+    {
+      bankName: 'Access Bank',
+      accountNumber: '1960630256',
+      accountName: 'OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI',
+      badge: 'Primary Account',
+    },
+    {
+      bankName: 'Ecobank',
+      accountNumber: '1960094404',
+      accountName: 'OSANYINTUYI MOFIYINFOLUWA SHINAAYOMI',
+      badge: 'Alternative',
+    },
+  ]
+
+  const bankDetails = bankAccounts[selectedBankIdx]
 
   const narration = revaId || (orderId ? `ORDER-${orderId.slice(0, 8)}` : 'REVA PAYMENT')
 
@@ -86,7 +99,7 @@ export default function BankTransferAIVerifier({
         setScanStep('Auditing transfer receipt with Gemini Multimodal AI...')
       }, 700)
       setTimeout(() => {
-        setScanStep('Verifying PalmPay 7040396575 destination & amount...')
+        setScanStep(`Verifying ${bankDetails.bankName} ${bankDetails.accountNumber} destination & amount...`)
       }, 1500)
 
       const payload = {
@@ -159,10 +172,34 @@ export default function BankTransferAIVerifier({
           </span>
         </div>
 
+        {/* Bank Selection Tabs */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {bankAccounts.map((b, idx) => (
+            <button
+              key={b.bankName}
+              type="button"
+              onClick={() => setSelectedBankIdx(idx)}
+              className={`p-2 rounded-lg border text-left transition ${
+                selectedBankIdx === idx
+                  ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-sm'
+                  : 'bg-neutral-800/50 border-neutral-700/60 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs">{b.bankName}</span>
+                <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-300">
+                  {b.badge}
+                </span>
+              </div>
+              <div className="font-mono text-xs text-emerald-300 mt-0.5">{b.accountNumber}</div>
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-2 gap-3 text-xs">
           {/* Bank */}
           <div className="bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/60">
-            <div className="text-[10px] uppercase tracking-wider text-neutral-400">Bank Name</div>
+            <div className="text-[10px] uppercase tracking-wider text-neutral-400">Selected Bank</div>
             <div className="font-bold text-white text-sm mt-0.5">{bankDetails.bankName}</div>
           </div>
 
@@ -185,7 +222,7 @@ export default function BankTransferAIVerifier({
           {/* Account Number */}
           <div className="col-span-2 bg-neutral-800/80 rounded-lg p-3 border border-emerald-500/40 flex items-center justify-between">
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-neutral-400">Account Number</div>
+              <div className="text-[10px] uppercase tracking-wider text-neutral-400">Account Number ({bankDetails.bankName})</div>
               <div className="font-mono font-extrabold text-white text-lg tracking-wider">
                 {bankDetails.accountNumber}
               </div>
@@ -248,8 +285,8 @@ export default function BankTransferAIVerifier({
           How to Complete Payment:
         </div>
         <ol className="list-decimal list-inside space-y-1 text-neutral-400 pl-1">
-          <li>Open your bank app (OPay, Kuda, PalmPay, GTBank, Zenith, Access, etc.).</li>
-          <li>Transfer <strong className="text-white">₦{amount.toLocaleString()}</strong> to PalmPay <strong className="text-emerald-400 font-mono">7040396575</strong>.</li>
+          <li>Open your bank app (Access Bank, OPay, Kuda, GTBank, Zenith, FirstBank, etc.).</li>
+          <li>Transfer <strong className="text-white">₦{amount.toLocaleString()}</strong> to <strong className="text-emerald-400">{bankDetails.bankName}</strong> account <strong className="text-emerald-400 font-mono">{bankDetails.accountNumber}</strong> ({bankDetails.accountName}).</li>
           <li>Screenshot the successful receipt or copy the NIBSS Session ID.</li>
           <li>Upload it below and click <strong className="text-white">"I Have Paid & Verify with AI"</strong>.</li>
         </ol>

@@ -33,7 +33,45 @@ export default function LoginPage() {
       script.defer = true
       document.head.appendChild(script)
     }
-  }, [])
+
+    (window as any).handleCredentialResponse = (response: any) => {
+      console.log("Encoded JWT ID token: " + response.credential);
+      try {
+        const base64Url = response.credential.split('.')[1]
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        )
+        const payload = JSON.parse(jsonPayload)
+        const googleUser = {
+          id: 'usr_g_' + (payload.sub || Date.now().toString(36)),
+          email: payload.email,
+          name: payload.name || payload.given_name || 'Google Member',
+          avatar_url: payload.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(payload.name || 'Member')}&background=0F0F0F&color=C9A227`,
+          state: 'Lagos',
+          lga: 'Ikeja',
+          account_type: 'individual' as const,
+          current_mode: 'buyer' as const,
+          is_buyer: true,
+          is_seller: true,
+          is_admin: false,
+          is_staff: false,
+          is_premium: false,
+          reva_id: `REVA-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+          kyc_status: 'verified' as const,
+          created_at: new Date().toISOString(),
+        }
+        login({ access_token: response.credential, refresh_token: 'google_jwt' }, googleUser)
+        toast.success(`Welcome, ${googleUser.name}!`)
+        navigate(from, { replace: true })
+      } catch (e) {
+        console.warn('Error processing Google credential:', e)
+      }
+    }
+  }, [from, login, navigate])
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) })
 
@@ -62,9 +100,9 @@ export default function LoginPage() {
           phone,
           name: 'Demo Member',
           email: 'member@revahub.ng',
-          account_type: 'individual' as const,
-          lga: 'Ikeja',
           state: 'Lagos',
+          lga: 'Ikeja',
+          account_type: 'individual' as const,
           current_mode: 'buyer' as const,
           is_buyer: true,
           is_seller: true,
@@ -91,6 +129,22 @@ export default function LoginPage() {
       <div className="text-center mb-6">
         <h1 className="text-2xl font-display font-bold text-dark-900">Log in to Reva Hub</h1>
         <p className="text-dark-600 mt-1 text-sm">Welcome back to Lagos recovered materials marketplace</p>
+      </div>
+
+      {/* Google Automatic Sign-In Button Container (Codelabs standard) */}
+      <div className="mb-4">
+        <div
+          id="g_id_onload"
+          data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+          data-callback="handleCredentialResponse"
+        ></div>
+        <div className="g_id_signin flex justify-center mb-2" data-type="standard"></div>
+        <GoogleAuthButton mode="signin" redirectTo={from} />
+      </div>
+
+      <div className="relative flex items-center justify-center my-4">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-cream-200" /></div>
+        <span className="relative bg-white px-2 text-xs uppercase tracking-wider text-dark-400">or sign in with phone</span>
       </div>
 
       <form onSubmit={handleSubmit((d) => loginMutation.mutate(d))} className="space-y-4">
