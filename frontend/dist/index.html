@@ -43,6 +43,18 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://google.com" async defer></script>
     <script>
+      // This function automatically runs immediately after a user clicks and signs in
+      function handleCredentialResponse(response) {
+        // 👇 THIS IS YOUR TOKEN (a long encoded string of letters and numbers)
+        const userToken = response.credential; 
+        
+        console.log("Here is your token: ", userToken);
+        
+        // Now, send 'userToken' to your backend server using a POST request
+        sendTokenToBackend(userToken);
+        window.dispatchEvent(new CustomEvent("google_credential_response", { detail: response }));
+      }
+
       function sendTokenToBackend(token) {
         fetch('https://yourdomain.com', {
           method: 'POST',
@@ -56,12 +68,6 @@
           // Handle successful login response from your backend here          
           console.log("Logged in successfully!", data);
         });
-      }
-
-      function handleCredentialResponse(response) {
-        console.log("Encoded JWT ID token: " + response.credential);
-        sendTokenToBackend(response.credential);
-        window.dispatchEvent(new CustomEvent("google_credential_response", { detail: response }));
       }
     </script>
 
@@ -136,8 +142,8 @@
         color: #766E65;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-CYzOF35d.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CZPwHUrd.css">
+    <script type="module" crossorigin src="/assets/index-CTBjKeCX.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D2jESszE.css">
   </head>
   <body>
     <noscript>

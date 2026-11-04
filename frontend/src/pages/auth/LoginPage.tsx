@@ -9,6 +9,7 @@ import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { GoogleAuthButton } from '../../components/auth/GoogleAuthButton'
 
 const schema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
@@ -158,14 +159,9 @@ export default function LoginPage() {
         <p className="text-dark-600 mt-1 text-sm">Welcome back to Lagos recovered materials marketplace</p>
       </div>
 
-      {/* Google Automatic Sign-In Button Container (Codelabs standard) */}
+      {/* Sign in with Google Button & Device Account Switcher */}
       <div className="mb-4">
-        <div
-          id="g_id_onload"
-          data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-          data-callback="handleCredentialResponse"
-        ></div>
-        <div className="g_id_signin flex justify-center mb-2" data-type="standard"></div>
+        <GoogleAuthButton mode="signin" redirectTo={from} />
       </div>
 
       <div className="relative flex items-center justify-center my-4">

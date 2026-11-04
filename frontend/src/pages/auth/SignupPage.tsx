@@ -9,6 +9,7 @@ import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { GoogleAuthButton } from '../../components/auth/GoogleAuthButton'
 import { LAGOS_LGAS } from '../../lib/nigeriaData'
 
 const step1Schema = z.object({
@@ -247,12 +248,7 @@ export default function SignupPage() {
 
       {step === 1 && (
         <div className="mb-5">
-          <div
-            id="g_id_onload"
-            data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-            data-callback="handleCredentialResponse"
-          ></div>
-          <div className="g_id_signin flex justify-center mb-2" data-type="standard"></div>
+          <GoogleAuthButton mode="signup" redirectTo="/" />
           <div className="relative flex items-center justify-center my-4">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-cream-200" /></div>
             <span className="relative bg-white px-2 text-xs uppercase tracking-wider text-dark-400">or sign up with WhatsApp phone</span>
