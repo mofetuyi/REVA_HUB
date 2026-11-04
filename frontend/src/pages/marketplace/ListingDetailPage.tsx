@@ -172,6 +172,32 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
     }
   }
 
+  const handlePayNowPaystack = () => {
+    if (typeof (window as any).payWithPaystack === 'function') {
+      (window as any).payWithPaystack({
+        email: buyerEmail || 'customer@email.com',
+        amount: Math.round(totalAmount * 100),
+        ref: 'INV_' + Math.floor((Math.random() * 1000000000) + 1),
+      })
+    } else if (typeof (window as any).PaystackPop !== 'undefined') {
+      const handler = (window as any).PaystackPop.setup({
+        key: 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxx',
+        email: buyerEmail || 'customer@email.com',
+        amount: Math.round(totalAmount * 100),
+        ref: 'INV_' + Math.floor((Math.random() * 1000000000) + 1),
+        onSuccess: function(response: any) {
+          window.location.href = "/verify?reference=" + response.reference;
+        },
+        onCancel: function() {
+          alert('Payment window closed before completion.');
+        }
+      });
+      handler.openIframe();
+    } else {
+      window.open(paystackUrl, '_blank')
+    }
+  }
+
   const checkoutMutation = useMutation({
     mutationFn: () => {
       if (!buyerAddress.trim()) {
@@ -345,14 +371,22 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
               <p className="text-[11px] text-dark-600 leading-snug">
                 Pay safely via Paystack. Funds remain safely in escrow. Once you confirm delivery, Paystack automatically transfers <strong>94%</strong> directly to the seller.
               </p>
+              <button
+                type="button"
+                onClick={handlePayNowPaystack}
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-md cursor-pointer"
+              >
+                <span>Pay Now</span>
+              </button>
+
               <a
                 href={paystackUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setPaymentConfirmed(true)}
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
+                className="w-full py-2 px-4 bg-transparent border border-emerald-600 text-emerald-800 hover:bg-emerald-50 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors"
               >
-                <span>Pay {formatNGN(totalAmount)} on Paystack (Price Autofilled)</span>
+                <span>Open Paystack Hosted Checkout</span>
                 <span>↗</span>
               </a>
               <label className="flex items-center gap-2 text-xs text-dark-700 cursor-pointer pt-1">

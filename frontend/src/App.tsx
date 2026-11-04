@@ -108,6 +108,7 @@ import AIAssistantPage from './pages/ai/AIAssistantPage'
 
 // ── Premium / Policy ──────────────────────────────────────────────────────────
 const PremiumPage = lazy(() => import('./pages/premium/PremiumPage'))
+const VerifyPaymentPage = lazy(() => import('./pages/payment/VerifyPaymentPage'))
 const PolicyPage = lazy(() => import('./pages/policy/PolicyPage'))
 const TermsPage = lazy(() => import('./pages/policy/TermsPage'))
 const PrivacyPage = lazy(() => import('./pages/policy/PrivacyPage'))
@@ -194,6 +195,7 @@ export default function App() {
           <Route path="kyc" element={<PrivateRoute><KYCPage /></PrivateRoute>} />
           <Route path="learn/my-learning" element={<PrivateRoute><MyLearningPage /></PrivateRoute>} />
           <Route path="ai" element={<PrivateRoute><AIAssistantPage /></PrivateRoute>} />
+          <Route path="verify" element={<VerifyPaymentPage />} />
           {/* ── Fallback 404 Page ──────────────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />
         </Route>

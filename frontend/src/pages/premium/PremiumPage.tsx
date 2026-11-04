@@ -205,6 +205,32 @@ export default function PremiumPage() {
     setShowModal(true)
   }
 
+  const handlePayNowPaystack = () => {
+    if (typeof (window as any).payWithPaystack === 'function') {
+      (window as any).payWithPaystack({
+        email: userEmail || 'customer@email.com',
+        amount: 300000,
+        ref: 'INV_' + Math.floor((Math.random() * 1000000000) + 1),
+      })
+    } else if (typeof (window as any).PaystackPop !== 'undefined') {
+      const handler = (window as any).PaystackPop.setup({
+        key: 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxx',
+        email: userEmail || 'customer@email.com',
+        amount: 300000,
+        ref: 'INV_' + Math.floor((Math.random() * 1000000000) + 1),
+        onSuccess: function(response: any) {
+          window.location.href = "/verify?reference=" + response.reference;
+        },
+        onCancel: function() {
+          alert('Payment window closed before completion.');
+        }
+      });
+      handler.openIframe();
+    } else {
+      handleOpenPaystack()
+    }
+  }
+
   const handleOpenPaystack = () => {
     try {
       navigator.clipboard.writeText(revaId)
@@ -593,14 +619,23 @@ export default function PremiumPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 pt-2">
+                <div className="space-y-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handlePayNowPaystack}
+                    className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Pay Now</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleOpenPaystack}
                     className="w-full py-3 px-4 bg-gold-500 hover:bg-gold-400 text-dark-900 font-bold text-sm rounded-xl transition-all shadow-lg shadow-gold-500/25 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4" />
-                    <span>1. Pay ₦3,000 on Paystack</span>
+                    <span>Pay ₦3,000 on Paystack (Hosted Page)</span>
                     <ExternalLink className="w-4 h-4" />
                   </button>
 

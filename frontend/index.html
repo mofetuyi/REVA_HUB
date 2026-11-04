@@ -74,6 +74,40 @@
       }
     </script>
 
+    <!-- Paystack Inline SDK -->
+    <script src="https://paystack.co"></script>
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script>
+      function payWithPaystack(opts) {
+        opts = opts || {};
+        var key = opts.key || window.REVA_PAYSTACK_KEY || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxx';
+        var email = opts.email || 'customer@email.com';
+        var amount = opts.amount || 500000; // Amount in kobo (e.g., 500000 kobo = ₦5,000)
+        var ref = opts.ref || ('INV_' + Math.floor((Math.random() * 1000000000) + 1)); // Unique reference
+
+        if (typeof PaystackPop === 'undefined') {
+          console.warn('PaystackPop library is loading or blocked...');
+          alert('Initializing Paystack payment gateway... Please ensure you are connected to the internet.');
+          return;
+        }
+
+        var handler = PaystackPop.setup({
+          key: key,
+          email: email,
+          amount: amount,
+          ref: ref,
+          onSuccess: function(response) {
+            // Send response.reference to your server backend to verify
+            window.location.href = "/verify?reference=" + response.reference;
+          },
+          onCancel: function() {
+            alert('Payment window closed before completion.');
+          }
+        });
+        handler.openIframe();
+      }
+    </script>
+
     <style>
       #app-preloader {
         display: flex;
