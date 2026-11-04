@@ -463,6 +463,13 @@ if os.path.isdir(FRONTEND_DIST):
     if os.path.isdir(uploads_dir):
         app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
+    @app.get("/googlebe1a2809417369b5.html", include_in_schema=False)
+    async def google_site_verification():
+        return Response(
+            content="google-site-verification: googlebe1a2809417369b5.html\n",
+            media_type="text/html",
+        )
+
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
         file_path = os.path.join(FRONTEND_DIST, full_path)
