@@ -75,9 +75,10 @@
     <script src="https://paystack.co"></script>
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <script>
+      window.REVA_PAYSTACK_KEY = 'pk_test_374047badf5dad69b6517084df8dff861cb75038';
       function payWithPaystack(opts) {
         opts = opts || {};
-        var key = opts.key || window.REVA_PAYSTACK_KEY || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxx';
+        var key = opts.key || window.REVA_PAYSTACK_KEY || 'pk_test_374047badf5dad69b6517084df8dff861cb75038';
         var email = opts.email || 'customer@email.com';
         var amount = opts.amount || 500000; // Amount in kobo (e.g., 500000 kobo = ₦5,000)
         var ref = opts.ref || ('INV_' + Math.floor((Math.random() * 1000000000) + 1)); // Unique reference

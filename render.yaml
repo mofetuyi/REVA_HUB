@@ -1,4 +1,4 @@
-# Deployment trigger: 2026-11-04T20:18:00Z
+# Deployment trigger: 2026-11-04T20:36:00Z
 # =============================================================================
 # Render Blueprint Specification for Reva Hub
 # Hosts both Frontend & Backend on a single domain with zero stress.
@@ -24,6 +24,8 @@ services:
         sync: false # Paste your Neon PostgreSQL connection string here
       - key: PAYMENT_PROVIDER
         value: paystack
+      - key: PAYMENT_PUBLIC_KEY
+        value: pk_test_374047badf5dad69b6517084df8dff861cb75038
       - key: PAYMENT_SECRET_KEY
         value: sk_test_705cc6033f529b9cd756010cf4019eb22bb14f08
       - key: PAYMENT_WEBHOOK_SECRET
