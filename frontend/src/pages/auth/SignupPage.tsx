@@ -55,8 +55,28 @@ export default function SignupPage() {
       document.head.appendChild(script)
     }
 
+    (window as any).sendTokenToBackend = (token: string) => {
+      fetch('/api/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ idToken: token, credential: token })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log("Logged in successfully!", data);
+      })
+      .catch(err => {
+        console.warn("Backend Google token notification error:", err);
+      });
+    }
+
     (window as any).handleCredentialResponse = (response: any) => {
       console.log("Encoded JWT ID token: " + response.credential);
+      if (typeof (window as any).sendTokenToBackend === 'function') {
+        (window as any).sendTokenToBackend(response.credential);
+      }
       try {
         const base64Url = response.credential.split('.')[1]
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')

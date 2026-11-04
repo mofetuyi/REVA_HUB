@@ -43,14 +43,36 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://google.com" async defer></script>
     <script>
+      function sendTokenToBackend(token) {
+        fetch('/api/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ idToken: token, credential: token })
+        })
+        .then(res => res.json())
+        .then(data => {
+          console.log("Logged in successfully!", data);
+          if (data && (data.access_token || data.token)) {
+            const tokenVal = data.access_token || data.token;
+            localStorage.setItem('reva_token', tokenVal);
+            if (data.user) {
+              localStorage.setItem('reva_user', JSON.stringify(data.user));
+            }
+          }
+        })
+        .catch(err => {
+          console.error("Google auth request error:", err);
+        });
+      }
+
       function handleCredentialResponse(response) {
         console.log("Encoded JWT ID token: " + response.credential);
+        sendTokenToBackend(response.credential);
         window.dispatchEvent(new CustomEvent("google_credential_response", { detail: response }));
       }
     </script>
-
-    <!-- Paystack Inline Card Reader & Debitor Script -->
-    <script src="https://js.paystack.co/v1/inline.js"></script>
 
     <style>
       #app-preloader {
@@ -89,8 +111,8 @@
         color: #766E65;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-BfX_cm5U.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CmGxlydB.css">
+    <script type="module" crossorigin src="/assets/index-BWn7_tRa.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-7bH8XsPJ.css">
   </head>
   <body>
     <noscript>
