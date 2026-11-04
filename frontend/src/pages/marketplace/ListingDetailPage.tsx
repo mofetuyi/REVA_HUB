@@ -1,8 +1,9 @@
 import React from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Package, Truck, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen, ShoppingCart, MessageSquare, ShieldCheck, CreditCard, Lock } from 'lucide-react'
+import { MapPin, Package, Truck, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen, ShoppingCart, MessageSquare, ShieldCheck, CreditCard, Lock, Building2 } from 'lucide-react'
 import CardReaderDebitor from '../../components/payment/CardReaderDebitor'
+import BankTransferAIVerifier from '../../components/payment/BankTransferAIVerifier'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
@@ -121,7 +122,7 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
   const [notes, setNotes] = React.useState('')
   const [quantity, setQuantity] = React.useState(listing.quantity || 1)
   const [paymentConfirmed, setPaymentConfirmed] = React.useState(false)
-  const [paymentMethod, setPaymentMethod] = React.useState<'card_debitor' | 'paystack_link'>('card_debitor')
+  const [paymentMethod, setPaymentMethod] = React.useState<'bank_transfer' | 'card_debitor' | 'paystack_link'>('bank_transfer')
 
   const totalAmount = (listing.price_ngn || 0) * (quantity || 1)
   const nameParts = (user?.name || '').trim().split(/\s+/)
@@ -271,6 +272,18 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
         <div className="flex bg-cream-100 border border-cream-200 rounded-xl p-1 text-xs">
           <button
             type="button"
+            onClick={() => setPaymentMethod('bank_transfer')}
+            className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+              paymentMethod === 'bank_transfer'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'text-dark-600 hover:text-dark-900'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Bank Transfer (AI)</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setPaymentMethod('card_debitor')}
             className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
               paymentMethod === 'card_debitor'
@@ -279,7 +292,7 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
             }`}
           >
             <CreditCard className="w-3.5 h-3.5" />
-            <span>Card Reader & Debitor</span>
+            <span>Card Debitor</span>
           </button>
           <button
             type="button"
@@ -290,11 +303,21 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
                 : 'text-dark-600 hover:text-dark-900'
             }`}
           >
-            <span>Paystack Link</span>
+            <span>Paystack</span>
           </button>
         </div>
 
-        {paymentMethod === 'card_debitor' ? (
+        {paymentMethod === 'bank_transfer' ? (
+          <BankTransferAIVerifier
+            amount={totalAmount}
+            title="Goods Escrow Bank Transfer"
+            subtitle={`Transfer ${formatNGN(totalAmount)} to PalmPay. Reva AI verifies instantly.`}
+            revaId={buyerRevaId}
+            paymentType="goods"
+            onSuccess={handleCardDebitSuccess}
+            onCancel={onClose}
+          />
+        ) : paymentMethod === 'card_debitor' ? (
           <CardReaderDebitor
             amount={totalAmount}
             title="Goods Escrow Card Debitor"
