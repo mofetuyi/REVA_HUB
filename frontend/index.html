@@ -42,32 +42,50 @@
     <!-- Google Identity Services for real Google One-Tap & Sign-In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://google.com" async defer></script>
-    <script>
-      // This function automatically runs immediately after a user clicks and signs in
-      function handleCredentialResponse(response) {
-        // 👇 THIS IS YOUR TOKEN (a long encoded string of letters and numbers)
-        const userToken = response.credential; 
-        
-        console.log("Here is your token: ", userToken);
-        
-        // Now, send 'userToken' to your backend server using a POST request
-        sendTokenToBackend(userToken);
-        window.dispatchEvent(new CustomEvent("google_credential_response", { detail: response }));
-      }
 
-      function sendTokenToBackend(token) {
-        fetch('https://yourdomain.com', {
+    <div id="g_id_onload"
+         data-client_id="297315865729-9qo3gsakcsumqgm2figktk8srsgdv24a.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    <div class="g_id_signin" data-type="standard" style="display:none;"></div>
+
+    <script>
+      function handleCredentialResponse(response) {
+        const userToken = response.credential;
+        console.log("Encoded JWT ID token: " + userToken);
+        
+        fetch('/api/auth/google', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ idToken: token }) // Sending the token in the request body
+          body: JSON.stringify({ idToken: userToken })
         })
         .then(res => res.json())
         .then(data => {
-          // Handle successful login response from your backend here          
-          console.log("Logged in successfully!", data);
-        });
+          if (data.success) {
+             console.log("Logged in successfully!", data.user);
+             try {
+               var authPayload = {
+                 state: {
+                   user: data.user,
+                   tokens: { access_token: data.access_token, refresh_token: data.refresh_token },
+                   isAuthenticated: true
+                 },
+                 version: 0
+               };
+               localStorage.setItem('reva_auth_store', JSON.stringify(authPayload));
+               window.dispatchEvent(new CustomEvent('reva_google_login', { detail: data }));
+             } catch(e) {}
+          } else {
+             console.error("Login failed:", data.message);
+          }
+        })
+        .catch(err => console.error("Error sending token:", err));
+      }
+
+      function sendTokenToBackend(token) {
+        handleCredentialResponse({ credential: token });
       }
     </script>
 

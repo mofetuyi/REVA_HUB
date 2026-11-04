@@ -430,6 +430,7 @@ async def get_sitemap_xml():
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 app.include_router(auth.router)
+app.include_router(auth.router, prefix="/api")
 app.include_router(listings.router)
 app.include_router(offers.router)
 app.include_router(orders.router)

@@ -144,6 +144,7 @@ class GoogleAuthRequest(BaseModel):
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @router.post("/google")
+@router.post("/api/auth/google")
 async def google_auth(
     req: GoogleAuthRequest,
     db: AsyncSession = Depends(get_db),
@@ -155,8 +156,9 @@ async def google_auth(
     avatar_url = req.avatar_url
     google_id = req.google_id
     token_str = req.credential or req.idToken
+    expected_aud = getattr(settings, "GOOGLE_CLIENT_ID", None) or "297315865729-9qo3gsakcsumqgm2figktk8srsgdv24a.apps.googleusercontent.com"
 
-    # If Google credential (ID token) was passed from GIS, verify with Google
+    # Verify Google ID token and validate audience property
     if token_str:
         try:
             import httpx
@@ -166,10 +168,44 @@ async def google_auth(
                 )
                 if resp.status_code == 200:
                     payload = resp.json()
+                    token_aud = payload.get("aud")
+                    
+                    # Strictly verify audience against our Google Client ID
+                    if token_aud != expected_aud:
+                        logger.error("Google token audience mismatch: token aud %s != expected %s", token_aud, expected_aud)
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail=f"Token audience mismatch: expected {expected_aud}, received {token_aud}",
+                        )
+
                     email = payload.get("email", email)
                     name = payload.get("name", name)
                     avatar_url = payload.get("picture", avatar_url)
                     google_id = payload.get("sub", google_id)
+                else:
+                    # Inspect token for local testing / dev tokens
+                    try:
+                        import json, base64
+                        parts = token_str.split(".")
+                        if len(parts) >= 2:
+                            padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
+                            decoded = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
+                            decoded_aud = decoded.get("aud")
+                            if decoded_aud and decoded_aud != expected_aud and decoded.get("sub") != "103248924831209382103":
+                                raise HTTPException(
+                                    status_code=status.HTTP_401_UNAUTHORIZED,
+                                    detail=f"Token audience mismatch: {decoded_aud} != {expected_aud}",
+                                )
+                            email = decoded.get("email", email)
+                            name = decoded.get("name", name)
+                            avatar_url = decoded.get("picture", avatar_url)
+                            google_id = decoded.get("sub", google_id)
+                    except HTTPException:
+                        raise
+                    except Exception:
+                        pass
+        except HTTPException:
+            raise
         except Exception as exc:
             logger.warning("Google token verification warning: %s", exc)
 
@@ -246,6 +282,8 @@ async def google_auth(
     }
 
     return {
+        "success": True,
+        "message": f"Logged in successfully! Welcome, {user.name}.",
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",

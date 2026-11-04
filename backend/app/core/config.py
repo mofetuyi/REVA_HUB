@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     S3_ENDPOINT_URL: Optional[str] = None
     S3_REGION: str = "us-east-1"
 
+    # ── Google OAuth ──────────────────────────────────────────────────────────
+    GOOGLE_CLIENT_ID: str = "297315865729-9qo3gsakcsumqgm2figktk8srsgdv24a.apps.googleusercontent.com"
+
     # ── Gemini AI ─────────────────────────────────────────────────────────────
     GEMINI_API_KEY: Optional[str] = os.environ.get(
         "GEMINI_API_KEY",

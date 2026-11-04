@@ -33,6 +33,7 @@ function createMockGoogleJwt(account: GoogleAccount): string {
   }
   const payload = {
     iss: 'https://google.com',
+    aud: '297315865729-9qo3gsakcsumqgm2figktk8srsgdv24a.apps.googleusercontent.com',
     sub: account.sub || ('1032489' + Math.floor(Math.random() * 10000000000000)),
     email: account.email,
     email_verified: true,

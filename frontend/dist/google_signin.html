@@ -1,0 +1,47 @@
+<!-- google_signin.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://google.com" async defer></script>
+</head>
+<body style="font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; background: #FAF8F5;">
+    <h2>Sign in to Your Account</h2>
+    
+    <div id="g_id_onload"
+         data-client_id="297315865729-9qo3gsakcsumqgm2figktk8srsgdv24a.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <script>
+      function handleCredentialResponse(response) {
+        const userToken = response.credential;
+        console.log("Encoded JWT ID token: " + userToken);
+        
+        fetch('/api/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ idToken: userToken })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+             console.log("Logged in successfully!", data.user);
+             alert("Logged in successfully! Welcome, " + (data.user?.name || "Member"));
+             window.location.href = "/";
+          } else {
+             console.error("Login failed:", data.message);
+             alert("Login failed: " + (data.message || "Unknown error"));
+          }
+        })
+        .catch(err => console.error("Error sending token:", err));
+      }
+    </script>
+</body>
+</html>
