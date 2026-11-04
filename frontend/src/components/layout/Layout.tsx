@@ -3,7 +3,7 @@ import { Outlet, Link } from 'react-router-dom'
 import { Header } from './Header'
 import { Toaster } from 'react-hot-toast'
 import { RevaLogoIcon } from '../ui/RevaLogo'
-import { Lock } from 'lucide-react'
+import { Lock, ExternalLink } from 'lucide-react'
 import ReviChatWidget from '../ai/ReviChatWidget'
 import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api'
@@ -48,9 +48,27 @@ export function Layout() {
               <span className="text-gold-500/60">•</span>
               <Link to="/policy" className="hover:text-gold-300 transition-colors">Trust & Safety</Link>
               <span className="text-gold-500/60">•</span>
-              <Link to="/terms" className="hover:text-gold-300 transition-colors">Terms</Link>
+              <a
+                href="https://pencraftacademy.com.ng/termsandcndition"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-gold-300 transition-colors inline-flex items-center gap-1"
+                title="Pencraft Academy Terms and Conditions"
+              >
+                <span>Terms & Conditions</span>
+                <ExternalLink className="w-3 h-3 opacity-60" />
+              </a>
               <span className="text-gold-500/60">•</span>
-              <Link to="/privacy" className="hover:text-gold-300 transition-colors">Privacy</Link>
+              <a
+                href="https://pencraftacademy.com.ng/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-gold-300 transition-colors inline-flex items-center gap-1"
+                title="Pencraft Academy Privacy Policy"
+              >
+                <span>Privacy Policy</span>
+                <ExternalLink className="w-3 h-3 opacity-60" />
+              </a>
             </div>
           </div>
 

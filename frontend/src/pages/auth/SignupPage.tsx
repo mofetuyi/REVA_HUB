@@ -277,8 +277,8 @@ export default function SignupPage() {
               />
               <label htmlFor="agree_to_policy" className="text-xs text-dark-700 leading-relaxed cursor-pointer select-none">
                 <strong>Reva Hub User Agreement:</strong> I agree to use Reva Hub lawfully, honestly and responsibly. I will not engage in fraud, scams, theft, harassment, exploitation, unauthorized access, or unlawful trading. I agree to Reva Hub's{' '}
-                <Link to="/terms" target="_blank" className="text-gold-600 underline font-medium">Terms of Service</Link>,{' '}
-                <Link to="/privacy" target="_blank" className="text-gold-600 underline font-medium">Privacy Policy</Link>, and{' '}
+                <a href="https://pencraftacademy.com.ng/termsandcndition" target="_blank" rel="noopener noreferrer" className="text-gold-600 underline font-medium">Terms and Conditions</a>,{' '}
+                <a href="https://pencraftacademy.com.ng/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-gold-600 underline font-medium">Privacy Policy</a>, and{' '}
                 <Link to="/policy" target="_blank" className="text-gold-600 underline font-medium">Trust & Safety Policy</Link>.
               </label>
             </div>

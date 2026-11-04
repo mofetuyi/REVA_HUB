@@ -179,7 +179,10 @@ export default function App() {
           <Route path="premium" element={<PremiumPage />} />
           <Route path="policy" element={<PolicyPage />} />
           <Route path="terms" element={<TermsPage />} />
+          <Route path="terms-and-conditions" element={<TermsPage />} />
+          <Route path="termsandconditions" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="privacy-policy" element={<PrivacyPage />} />
 
           {/* Private routes inside main layout */}
           <Route path="listings/create" element={<PrivateRoute><CreateListingPage /></PrivateRoute>} />
