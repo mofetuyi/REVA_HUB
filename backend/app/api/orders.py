@@ -649,16 +649,9 @@ async def verify_order_payment(
         return {"message": "Order is already funded in escrow", "status": order.status.value}
 
     from app.services.payment import verify_transaction
-    if not settings.payment_configured:
-        order.payment_reference = req.reference
-        order.funded_at = datetime.now(timezone.utc)
-        await _transition(db, order, OrderStatus.funded, current_user.id, f"Card payment confirmed (mock ref: {req.reference}). Funds held in Reva Escrow.")
-        await db.commit()
-        return {"message": "Payment verified and held in escrow", "status": order.status.value}
-
     v_res = await verify_transaction(req.reference)
     v_data = v_res.get("data", {}) if isinstance(v_res, dict) else {}
-    expected_kobo = int(float(order.total_amount_ngn) * 100)
+    expected_kobo = int(round(float(order.total_amount_ngn) * 100))
 
     if v_data.get("status") == "success" and v_data.get("amount", 0) >= expected_kobo:
         order.payment_reference = req.reference
@@ -667,7 +660,8 @@ async def verify_order_payment(
         await db.commit()
         return {"message": "Payment verified and locked in escrow", "status": order.status.value}
     else:
-        raise HTTPException(status_code=400, detail="Payment verification failed or amount mismatch")
+        err_msg = v_res.get("message") or f"Payment was not completed on Paystack (status: {v_data.get('status', 'unpaid')}). Please complete payment before verifying."
+        raise HTTPException(status_code=400, detail=err_msg)
 
 
 @router.post("/{order_id}/verify-transfer-ai")

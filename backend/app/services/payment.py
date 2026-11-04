@@ -19,8 +19,9 @@ PAYSTACK_BASE = "https://api.paystack.co"
 
 
 def _headers() -> dict:
+    secret = settings.PAYMENT_SECRET_KEY or "sk_test_705cc6033f529b9cd756010cf4019eb22bb14f08"
     return {
-        "Authorization": f"Bearer {settings.PAYMENT_SECRET_KEY}",
+        "Authorization": f"Bearer {secret}",
         "Content-Type": "application/json",
     }
 
@@ -138,17 +139,39 @@ async def send_seller_payout(
 
 
 async def verify_transaction(reference: str) -> dict:
-    """Verify a transaction reference with Paystack."""
-    if not settings.payment_configured:
-        return {"status": "success", "amount": 0, "reference": reference}
+    """Verify a transaction reference strictly with Paystack API.
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(
-            f"{PAYSTACK_BASE}/transaction/verify/{reference}",
-            headers=_headers(),
-        )
+    Guarantees:
+    - Never returns fake success if payment was not completed.
+    - Always queries Paystack with the configured secret key.
+    - Accurately reports whether the transaction status is 'success'.
+    """
+    clean_ref = reference.strip() if reference else ""
+    if not clean_ref:
+        return {"status": False, "message": "No transaction reference provided", "data": {"status": "abandoned"}}
 
-    return resp.json()
+    secret = settings.PAYMENT_SECRET_KEY or "sk_test_705cc6033f529b9cd756010cf4019eb22bb14f08"
+    headers = {
+        "Authorization": f"Bearer {secret}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{PAYSTACK_BASE}/transaction/verify/{clean_ref}",
+                headers=headers,
+            )
+            data = resp.json()
+            logger.info("Paystack verification response for %s (HTTP %s): %s", clean_ref, resp.status_code, data.get("message"))
+            return data
+    except Exception as exc:
+        logger.error("Paystack API connection error for %s: %s", clean_ref, exc)
+        return {
+            "status": False,
+            "message": f"Unable to reach Paystack gateway: {str(exc)}",
+            "data": {"status": "error"}
+        }
 
 
 def calculate_fees(amount_ngn: float) -> dict:

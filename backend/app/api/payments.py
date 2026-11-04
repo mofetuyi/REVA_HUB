@@ -215,3 +215,66 @@ async def charge_card(
         ),
         "timestamp": now.isoformat(),
     }
+
+
+class PaystackVerifyRequest(BaseModel):
+    reference: str
+
+
+@router.post("/verify-paystack")
+async def verify_paystack_payment(
+    req: PaystackVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(_get_optional_user),
+):
+    """Strictly verify a Paystack transaction reference using the live Paystack API."""
+    from app.services.payment import verify_transaction
+    clean_ref = req.reference.strip()
+    if not clean_ref:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Transaction reference is required for Paystack verification.",
+        )
+
+    v_res = await verify_transaction(clean_ref)
+    if not v_res.get("status"):
+        err_msg = v_res.get("message") or "Transaction not found on Paystack."
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Paystack verification failed: {err_msg}",
+        )
+
+    v_data = v_res.get("data", {})
+    paystack_status = v_data.get("status")
+
+    if paystack_status != "success":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Payment was not successful. Paystack status: {paystack_status or 'unpaid'}. Funds were not received.",
+        )
+
+    amount_kobo = v_data.get("amount", 0)
+    amount_ngn = amount_kobo / 100.0
+
+    # Auto-credit premium if user is authenticated and amount is >= 3,000 NGN
+    premium_activated = False
+    if current_user and amount_ngn >= 3000.0:
+        now = datetime.now(timezone.utc)
+        current_user.is_premium = True
+        current_user.premium_payment_reference = clean_ref
+        current_user.premium_activated_at = now
+        current_user.premium_expires_at = now + timedelta(days=settings.PREMIUM_DURATION_DAYS)
+        await db.commit()
+        premium_activated = True
+
+    return {
+        "success": True,
+        "status": "success",
+        "reference": clean_ref,
+        "amount_ngn": amount_ngn,
+        "paid_at": v_data.get("paid_at"),
+        "channel": v_data.get("channel"),
+        "customer": v_data.get("customer"),
+        "premium_activated": premium_activated,
+        "message": f"Payment of ₦{amount_ngn:,.2f} verified successfully via Paystack!",
+    }

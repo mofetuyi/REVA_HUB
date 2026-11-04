@@ -27,40 +27,47 @@ export default function VerifyPaymentPage() {
 
     const verify = async () => {
       try {
-        // 1. Try premium verification
+        // 1. Strictly verify the transaction with Paystack via the backend
+        let verifyData: any = null
         try {
-          const res = await api.post('/auth/premium/verify', { reference })
-          if (isMounted) {
-            setSuccess(true)
+          const res = await api.post('/payments/verify-paystack', { reference })
+          verifyData = res.data
+        } catch (paystackErr: any) {
+          // Check if it's already an activated premium payment
+          try {
+            const premRes = await api.post('/auth/premium/verify', { reference })
+            verifyData = premRes.data
             setTargetType('premium')
-            setMessage(res.data?.message || 'Reva Premium Subscription Activated! 👑')
-            if (res.data?.user) {
-              setUser(res.data.user)
-            } else {
-              const meRes = await api.get('/auth/me')
-              if (meRes.data) setUser(meRes.data)
+          } catch {
+            const errorMsg =
+              paystackErr.response?.data?.detail ||
+              'Paystack payment could not be verified. If you were debited, please check your reference or wait a moment.'
+            if (isMounted) {
+              setLoading(false)
+              setSuccess(false)
+              setMessage(errorMsg)
+              toast.error(errorMsg)
             }
-            toast.success('Payment verified successfully!')
-            setLoading(false)
             return
           }
-        } catch (e: any) {
-          // If not premium, try order verification
-          console.log('Not a premium payment, checking orders...', e)
         }
 
-        // 2. Refresh auth profile
+        // 2. Refresh auth profile if payment was for user account / premium
         try {
-          const me = await api.get('/auth/me')
-          if (isMounted && me.data) {
-            setUser(me.data)
+          const meRes = await api.get('/auth/me')
+          if (isMounted && meRes.data) {
+            setUser(meRes.data)
+            if (meRes.data.is_premium || verifyData?.premium_activated) {
+              setTargetType('premium')
+            }
           }
         } catch {}
 
         if (isMounted) {
           setSuccess(true)
-          setMessage('Payment confirmed! Your reference: ' + reference)
+          setMessage(verifyData?.message || `Payment verified successfully with Paystack! (Ref: ${reference})`)
           setLoading(false)
+          toast.success('Payment confirmed with Paystack! 🎉')
         }
       } catch (err: any) {
         if (isMounted) {

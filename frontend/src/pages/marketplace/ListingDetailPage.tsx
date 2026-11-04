@@ -119,7 +119,7 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
   const [buyerAddress, setBuyerAddress] = React.useState('')
   const [notes, setNotes] = React.useState('')
   const [quantity, setQuantity] = React.useState(listing.quantity || 1)
-  const [paymentConfirmed, setPaymentConfirmed] = React.useState(false)
+  const [paystackRef, setPaystackRef] = React.useState('')
 
   const totalAmount = (listing.price_ngn || 0) * (quantity || 1)
   const nameParts = (user?.name || '').trim().split(/\s+/)
@@ -207,7 +207,7 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
         buyer_phone: buyerPhone || undefined,
         buyer_delivery_address: buyerAddress.trim(),
         notes: notes || undefined,
-        payment_reference: paymentConfirmed ? `paystack_direct_${Date.now()}` : undefined,
+        payment_reference: paystackRef.trim() || undefined,
       })
     },
     onSuccess: (res) => {
@@ -312,21 +312,24 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
             href={paystackUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => setPaymentConfirmed(true)}
             className="w-full py-2 px-4 bg-transparent border border-emerald-600 text-emerald-800 hover:bg-emerald-50 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors"
           >
             <span>Open Paystack Hosted Checkout</span>
             <span>↗</span>
           </a>
-          <label className="flex items-center gap-2 text-xs text-dark-700 cursor-pointer pt-1">
+
+          <div className="pt-1 space-y-1">
+            <label className="block text-[11px] font-semibold text-dark-700">
+              Paid on Hosted Checkout? Enter Paystack Reference:
+            </label>
             <input
-              type="checkbox"
-              checked={paymentConfirmed}
-              onChange={(e) => setPaymentConfirmed(e.target.checked)}
-              className="rounded text-gold-500 focus:ring-gold-400"
+              type="text"
+              placeholder="e.g. T123456789 or INV_..."
+              value={paystackRef}
+              onChange={(e) => setPaystackRef(e.target.value)}
+              className="w-full text-xs px-3 py-2 border border-cream-300 rounded-lg bg-white font-mono focus:outline-none focus:ring-1 focus:ring-gold-500"
             />
-            <span>I have paid on Paystack</span>
-          </label>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-1">

@@ -239,11 +239,15 @@ export default function PremiumPage() {
   }
 
   const handleVerifyPayment = async (overrideRef?: string) => {
-    setVerifying(true)
     const refToUse = (typeof overrideRef === 'string' && overrideRef) ? overrideRef.trim() : referenceInput.trim()
+    if (!refToUse) {
+      toast.error('Please enter your Paystack payment reference (e.g. from your Paystack receipt) to verify.', { duration: 4500 })
+      return
+    }
+    setVerifying(true)
     try {
       const res = await api.post('/auth/premium/verify', {
-        reference: refToUse || undefined,
+        reference: refToUse,
       })
       if (res.data?.user) {
         setUser(res.data.user)
@@ -257,7 +261,7 @@ export default function PremiumPage() {
     } catch (err: any) {
       const msg =
         err.response?.data?.detail ||
-        'Could not verify payment with Paystack yet. Please confirm payment was successful or check your reference.'
+        'Could not verify payment with Paystack. Please confirm the payment was successful or check your reference.'
       toast.error(msg, { duration: 6000 })
     } finally {
       setVerifying(false)
