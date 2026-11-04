@@ -72,6 +72,7 @@ async def create_checkout(
 
     return {
         "checkout_url": data["data"]["authorization_url"],
+        "access_code": data["data"].get("access_code"),
         "reference": data["data"]["reference"],
         "configured": True,
     }

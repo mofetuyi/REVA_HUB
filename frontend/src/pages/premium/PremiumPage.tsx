@@ -7,8 +7,9 @@ import {
   Crown, ShoppingBag, Search, BookOpen, Briefcase,
   Zap, Shield, TrendingUp, Star, Bell, Tag, Users,
   BarChart2, MessageSquare, CheckCircle, AlertCircle,
-  ExternalLink, RefreshCw, Info, Copy, Check, X, Sparkles, Video
+  ExternalLink, RefreshCw, Info, Copy, Check, X, Sparkles, Video, CreditCard
 } from 'lucide-react'
+import CardReaderDebitor from '../../components/payment/CardReaderDebitor'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -147,6 +148,7 @@ export default function PremiumPage() {
   const [copied, setCopied] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [referenceInput, setReferenceInput] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'card_debitor' | 'paystack_link'>('card_debitor')
 
   // Sync user state on mount to reflect latest server subscription status
   React.useEffect(() => {
@@ -212,11 +214,12 @@ export default function PremiumPage() {
     window.open(paystackPremiumUrl, '_blank')
   }
 
-  const handleVerifyPayment = async () => {
+  const handleVerifyPayment = async (overrideRef?: string) => {
     setVerifying(true)
+    const refToUse = (typeof overrideRef === 'string' && overrideRef) ? overrideRef.trim() : referenceInput.trim()
     try {
       const res = await api.post('/auth/premium/verify', {
-        reference: referenceInput.trim() || undefined,
+        reference: refToUse || undefined,
       })
       if (res.data?.user) {
         setUser(res.data.user)
@@ -454,119 +457,166 @@ export default function PremiumPage() {
               </div>
             </div>
 
-            <div className="space-y-3.5 mb-6">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
-                    First Name
-                  </label>
-                  <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100">
-                    {firstName || 'Valued'}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
-                    Last Name
-                  </label>
-                  <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100">
-                    {lastName || 'Member'}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
-                  Email Address
-                </label>
-                <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100 truncate">
-                  {userEmail || 'member@reva-marketplace.com.ng'}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gold-400 uppercase tracking-wider mb-1">
-                  REVA ID Number (Autofilled & Copied)
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    readOnly
-                    value={revaId}
-                    className="w-full bg-dark-900 border border-gold-500/50 rounded-lg pl-3 pr-24 py-2 font-mono text-sm text-gold-300 font-bold tracking-wider focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(revaId)}
-                    className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-dark-700 hover:bg-dark-600 text-cream-200 text-xs font-semibold rounded flex items-center gap-1 transition-colors"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <p className="text-[11px] text-cream-400 mt-1">
-                  Autofilled in Paystack checkout and copied to your clipboard.
-                </p>
-              </div>
-
-              <div className="bg-dark-900/70 border border-dark-700 rounded-lg p-3 text-xs text-cream-200 space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-cream-400">Subscription:</span>
-                  <span className="font-semibold text-gold-400">NGN 3,000 / month</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-cream-400">Checkout Status:</span>
-                  <span className="text-green-400 font-medium">Ready with your details prefilled</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-2">
+            {/* Payment Method Switcher */}
+            <div className="flex bg-dark-900 border border-dark-700 rounded-xl p-1 mb-5 text-xs">
               <button
                 type="button"
-                onClick={handleOpenPaystack}
-                className="w-full py-3 px-4 bg-gold-500 hover:bg-gold-400 text-dark-900 font-bold text-sm rounded-xl transition-all shadow-lg shadow-gold-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                onClick={() => setPaymentMethod('card_debitor')}
+                className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+                  paymentMethod === 'card_debitor'
+                    ? 'bg-gold-500 text-dark-950 font-bold shadow'
+                    : 'text-cream-300 hover:text-cream-100'
+                }`}
               >
-                <Sparkles className="w-4 h-4" />
-                <span>1. Pay ₦3,000 on Paystack</span>
-                <ExternalLink className="w-4 h-4" />
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Card Reader & Debitor</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('paystack_link')}
+                className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+                  paymentMethod === 'paystack_link'
+                    ? 'bg-gold-500 text-dark-950 font-bold shadow'
+                    : 'text-cream-300 hover:text-cream-100'
+                }`}
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Paystack Link / Sync</span>
+              </button>
+            </div>
 
-              <div className="border-t border-dark-700/80 pt-3 space-y-2">
-                <label className="block text-xs font-semibold text-cream-300">
-                  2. Already Paid? Verify & Activate Instantly
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={referenceInput}
-                    onChange={(e) => setReferenceInput(e.target.value)}
-                    placeholder="Enter Paystack Ref (e.g. T123456789) or leave empty"
-                    className="flex-1 bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-xs text-cream-100 placeholder-cream-500 font-mono focus:outline-none focus:border-gold-500"
-                  />
+            {paymentMethod === 'card_debitor' ? (
+              <CardReaderDebitor
+                amount={3000}
+                title="Premium Card Reader & Debitor"
+                subtitle="Debit ₦3,000 for 30-Day Reva Premium"
+                email={userEmail}
+                name={user?.name || ''}
+                phone={userPhone}
+                revaId={revaId}
+                paymentType="premium"
+                onSuccess={async (ref) => {
+                  await handleVerifyPayment(ref)
+                }}
+                onCancel={() => setShowModal(false)}
+              />
+            ) : (
+              <>
+                <div className="space-y-3.5 mb-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
+                        First Name
+                      </label>
+                      <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100">
+                        {firstName || 'Valued'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
+                        Last Name
+                      </label>
+                      <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100">
+                        {lastName || 'Member'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
+                      Email Address
+                    </label>
+                    <div className="bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-cream-100 truncate">
+                      {userEmail || 'member@reva-marketplace.com.ng'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gold-400 uppercase tracking-wider mb-1">
+                      REVA ID Number (Autofilled & Copied)
+                    </label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        readOnly
+                        value={revaId}
+                        className="w-full bg-dark-900 border border-gold-500/50 rounded-lg pl-3 pr-24 py-2 font-mono text-sm text-gold-300 font-bold tracking-wider focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(revaId)}
+                        className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-dark-700 hover:bg-dark-600 text-cream-200 text-xs font-semibold rounded flex items-center gap-1 transition-colors"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-cream-400 mt-1">
+                      Autofilled in Paystack checkout and copied to your clipboard.
+                    </p>
+                  </div>
+
+                  <div className="bg-dark-900/70 border border-dark-700 rounded-lg p-3 text-xs text-cream-200 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-cream-400">Subscription:</span>
+                      <span className="font-semibold text-gold-400">NGN 3,000 / month</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-cream-400">Checkout Status:</span>
+                      <span className="text-green-400 font-medium">Ready with your details prefilled</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-2">
                   <button
                     type="button"
-                    onClick={handleVerifyPayment}
-                    disabled={verifying}
-                    className="px-4 py-2 bg-dark-700 hover:bg-dark-600 border border-gold-500/40 text-gold-400 hover:text-gold-300 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    onClick={handleOpenPaystack}
+                    className="w-full py-3 px-4 bg-gold-500 hover:bg-gold-400 text-dark-900 font-bold text-sm rounded-xl transition-all shadow-lg shadow-gold-500/25 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {verifying ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Verifying...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-3.5 h-3.5 text-gold-400" />
-                        <span>Verify Payment</span>
-                      </>
-                    )}
+                    <Sparkles className="w-4 h-4" />
+                    <span>1. Pay ₦3,000 on Paystack</span>
+                    <ExternalLink className="w-4 h-4" />
                   </button>
+
+                  <div className="border-t border-dark-700/80 pt-3 space-y-2">
+                    <label className="block text-xs font-semibold text-cream-300">
+                      2. Already Paid? Verify & Activate Instantly
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={referenceInput}
+                        onChange={(e) => setReferenceInput(e.target.value)}
+                        placeholder="Enter Paystack Ref (e.g. T123456789) or leave empty"
+                        className="flex-1 bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-xs text-cream-100 placeholder-cream-500 font-mono focus:outline-none focus:border-gold-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleVerifyPayment()}
+                        disabled={verifying}
+                        className="px-4 py-2 bg-dark-700 hover:bg-dark-600 border border-gold-500/40 text-gold-400 hover:text-gold-300 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        {verifying ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Verifying...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-3.5 h-3.5 text-gold-400" />
+                            <span>Verify Payment</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-cream-400 leading-normal">
+                      Our server verifies the transaction directly with Paystack before activating your 30-day Premium membership.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[11px] text-cream-400 leading-normal">
-                  Our server verifies the transaction directly with Paystack before activating your 30-day Premium membership.
-                </p>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
       )}

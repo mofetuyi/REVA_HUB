@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Truck, MessageSquare, ExternalLink, CheckCircle2, Clock, ShieldCheck, MapPin } from 'lucide-react'
+import { Truck, MessageSquare, ExternalLink, CheckCircle2, Clock, ShieldCheck, MapPin, CreditCard, X } from 'lucide-react'
+import CardReaderDebitor from '../../components/payment/CardReaderDebitor'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
@@ -203,6 +204,7 @@ export default function OrdersPage() {
   const [disputeOrder, setDisputeOrder] = React.useState<Order | null>(null)
   const [reviewOrder, setReviewOrder] = React.useState<Order | null>(null)
   const [trackingOrder, setTrackingOrder] = React.useState<Order | null>(null)
+  const [cardPayOrder, setCardPayOrder] = React.useState<Order | null>(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -307,9 +309,24 @@ export default function OrdersPage() {
               {/* Actions */}
               <div className="flex flex-wrap gap-2">
                 {tab === 'buying' && order.status === 'payment_pending' && (
-                  <Button size="sm" onClick={() => paymentMutation.mutate(order.id)} loading={paymentMutation.isPending}>
-                    Pay Now
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setCardPayOrder(order)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>Card Reader & Debitor</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => paymentMutation.mutate(order.id)}
+                      loading={paymentMutation.isPending}
+                    >
+                      Pay via Link
+                    </Button>
+                  </div>
                 )}
                 {tab === 'buying' && (order.status === 'funded' || order.status === 'in_transit' || order.status === 'delivered') && (
                   <Button
@@ -372,6 +389,32 @@ export default function OrdersPage() {
       {disputeOrder && <DisputeModal order={disputeOrder} onClose={() => setDisputeOrder(null)} />}
       {reviewOrder && <ReviewModal order={reviewOrder} onClose={() => setReviewOrder(null)} />}
       {trackingOrder && <TrackingModal order={trackingOrder} onClose={() => setTrackingOrder(null)} />}
+
+      {cardPayOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+          onClick={() => setCardPayOrder(null)}
+        >
+          <div className="relative max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <CardReaderDebitor
+              amount={cardPayOrder.total_amount_ngn}
+              title="Escrow Order Card Debitor"
+              subtitle={`Order #${cardPayOrder.id.slice(0, 8)} • ₦${cardPayOrder.total_amount_ngn.toLocaleString()}`}
+              email={user?.email || (user?.phone ? `${user.phone.replace(/[^0-9]/g, '')}@reva-marketplace.com.ng` : '')}
+              name={user?.name || ''}
+              phone={user?.phone || ''}
+              paymentType="goods"
+              orderId={cardPayOrder.id}
+              onSuccess={async (ref) => {
+                queryClient.invalidateQueries({ queryKey: ['orders'] })
+                setCardPayOrder(null)
+                toast.success('🎉 Card debited and order funded! Escrow is active.')
+              }}
+              onCancel={() => setCardPayOrder(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,7 +1,8 @@
 import React from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Package, Truck, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen, ShoppingCart, MessageSquare, ShieldCheck } from 'lucide-react'
+import { MapPin, Package, Truck, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen, ShoppingCart, MessageSquare, ShieldCheck, CreditCard, Lock } from 'lucide-react'
+import CardReaderDebitor from '../../components/payment/CardReaderDebitor'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
@@ -120,6 +121,7 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
   const [notes, setNotes] = React.useState('')
   const [quantity, setQuantity] = React.useState(listing.quantity || 1)
   const [paymentConfirmed, setPaymentConfirmed] = React.useState(false)
+  const [paymentMethod, setPaymentMethod] = React.useState<'card_debitor' | 'paystack_link'>('card_debitor')
 
   const totalAmount = (listing.price_ngn || 0) * (quantity || 1)
   const nameParts = (user?.name || '').trim().split(/\s+/)
@@ -145,6 +147,29 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
     goodsParams.set('reva_id_no', buyerRevaId)
   }
   const paystackUrl = `https://paystack.shop/pay/13c70vrnsm?${goodsParams.toString()}`
+
+  const handleCardDebitSuccess = async (reference: string) => {
+    if (!buyerAddress.trim()) {
+      toast.error('Please enter your delivery address in Lagos before debiting card')
+      return
+    }
+    try {
+      await api.post('/orders/checkout', {
+        listing_id: listing.id,
+        quantity: Number(quantity),
+        delivery_method: 'delivery',
+        buyer_phone: buyerPhone || undefined,
+        buyer_delivery_address: buyerAddress.trim(),
+        notes: notes || undefined,
+        payment_reference: reference,
+      })
+      toast.success('🎉 Card debited and order placed! Funds secured in Reva Escrow.')
+      onClose()
+      navigate('/orders')
+    } catch (err: any) {
+      toast.error(extractError(err))
+    }
+  }
 
   const checkoutMutation = useMutation({
     mutationFn: () => {
@@ -242,46 +267,94 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
           </div>
         </div>
 
-        {/* Paystack Payment Section with autofilled amount & payment link */}
-        <div className="border border-gold-300 bg-gold-50/60 p-4 rounded-xl space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-dark-900">Paystack Escrow Protection</span>
-            <span className="text-xs font-mono font-bold text-gold-700">Autofill: {formatNGN(totalAmount)}</span>
-          </div>
-          <p className="text-[11px] text-dark-600 leading-snug">
-            Pay safely via Paystack. Funds remain safely in escrow. Once you confirm delivery, Paystack automatically transfers <strong>94%</strong> directly to the seller.
-          </p>
-          <a
-            href={paystackUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setPaymentConfirmed(true)}
-            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
+        {/* Payment Method Tabs */}
+        <div className="flex bg-cream-100 border border-cream-200 rounded-xl p-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setPaymentMethod('card_debitor')}
+            className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+              paymentMethod === 'card_debitor'
+                ? 'bg-[#062E12] text-white shadow'
+                : 'text-dark-600 hover:text-dark-900'
+            }`}
           >
-            <span>Pay {formatNGN(totalAmount)} on Paystack (Price Autofilled)</span>
-            <span>↗</span>
-          </a>
-          <label className="flex items-center gap-2 text-xs text-dark-700 cursor-pointer pt-1">
-            <input
-              type="checkbox"
-              checked={paymentConfirmed}
-              onChange={(e) => setPaymentConfirmed(e.target.checked)}
-              className="rounded text-gold-500 focus:ring-gold-400"
-            />
-            <span>I have paid on Paystack</span>
-          </label>
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>Card Reader & Debitor</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentMethod('paystack_link')}
+            className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+              paymentMethod === 'paystack_link'
+                ? 'bg-[#062E12] text-white shadow'
+                : 'text-dark-600 hover:text-dark-900'
+            }`}
+          >
+            <span>Paystack Link</span>
+          </button>
         </div>
 
-        <div className="flex gap-3 pt-1">
-          <Button variant="secondary" onClick={onClose} className="flex-1">Cancel</Button>
-          <Button
-            onClick={() => checkoutMutation.mutate()}
-            loading={checkoutMutation.isPending}
-            className="flex-1 bg-gold-500 hover:bg-gold-600 text-dark-900 font-bold"
-          >
-            Confirm & Place Order
-          </Button>
-        </div>
+        {paymentMethod === 'card_debitor' ? (
+          <CardReaderDebitor
+            amount={totalAmount}
+            title="Goods Escrow Card Debitor"
+            subtitle={`Debit ${formatNGN(totalAmount)} for ${listing.title}`}
+            email={buyerEmail}
+            name={user?.name || ''}
+            phone={buyerPhone}
+            paymentType="goods"
+            metadata={{
+              listing_id: listing.id,
+              quantity: quantity,
+              delivery_address: buyerAddress,
+            }}
+            onSuccess={handleCardDebitSuccess}
+            onCancel={onClose}
+          />
+        ) : (
+          <>
+            {/* Paystack Payment Section with autofilled amount & payment link */}
+            <div className="border border-gold-300 bg-gold-50/60 p-4 rounded-xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-dark-900">Paystack Escrow Protection</span>
+                <span className="text-xs font-mono font-bold text-gold-700">Autofill: {formatNGN(totalAmount)}</span>
+              </div>
+              <p className="text-[11px] text-dark-600 leading-snug">
+                Pay safely via Paystack. Funds remain safely in escrow. Once you confirm delivery, Paystack automatically transfers <strong>94%</strong> directly to the seller.
+              </p>
+              <a
+                href={paystackUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setPaymentConfirmed(true)}
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
+              >
+                <span>Pay {formatNGN(totalAmount)} on Paystack (Price Autofilled)</span>
+                <span>↗</span>
+              </a>
+              <label className="flex items-center gap-2 text-xs text-dark-700 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={paymentConfirmed}
+                  onChange={(e) => setPaymentConfirmed(e.target.checked)}
+                  className="rounded text-gold-500 focus:ring-gold-400"
+                />
+                <span>I have paid on Paystack</span>
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <Button variant="secondary" onClick={onClose} className="flex-1">Cancel</Button>
+              <Button
+                onClick={() => checkoutMutation.mutate()}
+                loading={checkoutMutation.isPending}
+                className="flex-1 bg-gold-500 hover:bg-gold-600 text-dark-900 font-bold"
+              >
+                Confirm & Place Order
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

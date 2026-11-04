@@ -763,6 +763,59 @@ async def resend_otp(
     }
 
 
+@router.get("/payment-config")
+async def get_payment_config():
+    """Returns payment provider configuration and client credentials."""
+    return {
+        "provider": settings.PAYMENT_PROVIDER,
+        "public_key": settings.PAYMENT_PUBLIC_KEY,
+        "currency": "NGN",
+        "configured": settings.payment_configured,
+        "premium_amount_ngn": (settings.PREMIUM_AMOUNT_KOBO or 300000) / 100,
+        "premium_amount_kobo": settings.PREMIUM_AMOUNT_KOBO or 300000,
+    }
+
+
+@router.post("/premium/initiate-payment")
+async def initiate_premium_payment(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Initializes a Card/Paystack transaction specifically for Reva Premium (₦3,000)."""
+    from app.services.payment import create_checkout
+
+    email = current_user.email or f"{current_user.phone.replace('+', '')}@reva-marketplace.com.ng"
+    amount_ngn = float((settings.PREMIUM_AMOUNT_KOBO or 300000) / 100)
+    callback_url = f"{settings.FRONTEND_URL}/premium?payment=callback"
+    reva_id = current_user.reva_id or f"REVA-{str(current_user.id)[:8].upper()}"
+
+    checkout_data = await create_checkout(
+        order_id=f"premium_{current_user.id}_{int(datetime.now(timezone.utc).timestamp())}",
+        amount_ngn=amount_ngn,
+        customer_email=email,
+        callback_url=callback_url,
+        metadata={
+            "reva_id": reva_id,
+            "reva_id_number": reva_id,
+            "payment_type": "premium_subscription",
+            "user_id": str(current_user.id),
+            "custom_fields": [
+                {
+                    "display_name": "REVA ID number",
+                    "variable_name": "reva_id_number",
+                    "value": reva_id,
+                }
+            ],
+        },
+    )
+    return {
+        **checkout_data,
+        "amount_ngn": amount_ngn,
+        "email": email,
+        "reva_id": reva_id,
+    }
+
+
 class PremiumVerifyPaymentRequest(BaseModel):
     reference: Optional[str] = None
 

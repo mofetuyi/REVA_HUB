@@ -172,6 +172,7 @@ async def checkout_cart(
     # Initialize live Paystack session if configured
     email = current_user.email or f"{current_user.phone}@reva.placeholder"
     checkout_url = "https://paystack.shop/pay/13c70vrnsm"
+    access_code = None
     if settings.payment_configured:
         try:
             paystack_res = await create_checkout(
@@ -181,6 +182,7 @@ async def checkout_cart(
                 callback_url=f"{settings.FRONTEND_URL}/orders?cart_group={cart_group_id}",
             )
             checkout_url = paystack_res["checkout_url"]
+            access_code = paystack_res.get("access_code")
         except Exception as e:
             logger.warning("Could not initialize dynamic Paystack checkout: %s; using standard link", e)
 
@@ -198,4 +200,5 @@ async def checkout_cart(
         "tracking_code": dispatch_booking["tracking_code"],
         "tracking_url": dispatch_booking["tracking_url"],
         "checkout_url": checkout_url,
+        "access_code": access_code,
     }
