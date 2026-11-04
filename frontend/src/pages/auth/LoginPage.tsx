@@ -9,7 +9,6 @@ import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
-import { GoogleAuthButton } from '../../components/auth/GoogleAuthButton'
 
 const schema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
@@ -34,28 +33,36 @@ export default function LoginPage() {
       document.head.appendChild(script)
     }
 
-    (window as any).sendTokenToBackend = (token: string) => {
-      fetch('/api/auth/google', {
+    function sendTokenToBackend(token: string) {
+      fetch('https://yourdomain.com', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ idToken: token, credential: token })
+        body: JSON.stringify({ idToken: token }) // Sending the token in the request body
       })
       .then(res => res.json())
       .then(data => {
+        // Handle successful login response from your backend here          
         console.log("Logged in successfully!", data);
       })
-      .catch(err => {
-        console.warn("Backend Google token notification error:", err);
+      .catch(() => {
+        // Fallback to local server API
+        fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: token, credential: token })
+        })
+        .then(res => res.json())
+        .then(data => console.log("Logged in successfully!", data))
+        .catch(err => console.error(err));
       });
     }
 
-    (window as any).handleCredentialResponse = (response: any) => {
+    ;(window as any).sendTokenToBackend = sendTokenToBackend
+    ;(window as any).handleCredentialResponse = (response: any) => {
       console.log("Encoded JWT ID token: " + response.credential);
-      if (typeof (window as any).sendTokenToBackend === 'function') {
-        (window as any).sendTokenToBackend(response.credential);
-      }
+      sendTokenToBackend(response.credential);
       try {
         const base64Url = response.credential.split('.')[1]
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
@@ -159,7 +166,6 @@ export default function LoginPage() {
           data-callback="handleCredentialResponse"
         ></div>
         <div className="g_id_signin flex justify-center mb-2" data-type="standard"></div>
-        <GoogleAuthButton mode="signin" redirectTo={from} />
       </div>
 
       <div className="relative flex items-center justify-center my-4">

@@ -70,9 +70,9 @@ class Settings(BaseSettings):
     # ── Payment (Paystack) ────────────────────────────────────────────────────
     # NOTE: Production escrow must be validated with Paystack before enabling.
     PAYMENT_PROVIDER: str = "paystack"
-    PAYMENT_SECRET_KEY: Optional[str] = None
+    PAYMENT_SECRET_KEY: Optional[str] = "sk_test_705cc6033f529b9cd756010cf4019eb22bb14f08"
     PAYMENT_PUBLIC_KEY: Optional[str] = None
-    PAYMENT_WEBHOOK_SECRET: Optional[str] = None
+    PAYMENT_WEBHOOK_SECRET: Optional[str] = "sk_test_705cc6033f529b9cd756010cf4019eb22bb14f08"
 
     # ── Object Storage ────────────────────────────────────────────────────────
     S3_BUCKET_NAME: Optional[str] = None
