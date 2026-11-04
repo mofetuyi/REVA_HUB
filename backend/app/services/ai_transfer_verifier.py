@@ -98,7 +98,7 @@ async def verify_receipt_with_gemini(
         },
     }
 
-    models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]
+    models_to_try = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"]
 
     async with httpx.AsyncClient(timeout=25.0) as client:
         for model in models_to_try:

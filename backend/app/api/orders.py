@@ -192,9 +192,48 @@ async def initiate_payment(
 
     return {
         "checkout_url": checkout_data["checkout_url"],
+        "access_code": checkout_data.get("access_code"),
         "reference": checkout_data["reference"],
         "configured": checkout_data.get("configured", False),
         "fee_breakdown": fees,
+    }
+
+
+class InitiateCheckoutPaymentRequest(BaseModel):
+    amount_ngn: float
+    listing_id: Optional[str] = None
+    email: Optional[str] = None
+    reva_id: Optional[str] = None
+
+
+@router.post("/initiate-checkout-payment")
+async def initiate_checkout_payment(
+    req: InitiateCheckoutPaymentRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Initializes a real Paystack transaction for immediate goods checkout."""
+    from app.services.payment import create_checkout
+    email = req.email or current_user.email or f"{current_user.phone.replace('+', '')}@reva-marketplace.com.ng"
+    callback_url = f"{settings.FRONTEND_URL}/orders?payment=callback"
+    order_ref = f"goods_{current_user.id}_{int(datetime.now(timezone.utc).timestamp())}"
+
+    checkout_data = await create_checkout(
+        order_id=order_ref,
+        amount_ngn=float(req.amount_ngn),
+        customer_email=email,
+        callback_url=callback_url,
+        metadata={
+            "listing_id": req.listing_id,
+            "reva_id": req.reva_id,
+            "payment_type": "goods_purchase",
+            "buyer_id": str(current_user.id),
+        },
+    )
+    return {
+        **checkout_data,
+        "amount_ngn": req.amount_ngn,
+        "email": email,
     }
 
 

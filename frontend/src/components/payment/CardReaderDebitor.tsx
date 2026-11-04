@@ -135,8 +135,13 @@ export default function CardReaderDebitor({
         const res = await api.post(`/orders/${orderId}/initiate-payment`)
         initData = res.data
       } else {
-        // Fallback initialization
-        const res = await api.post('/auth/premium/initiate-payment')
+        // Pre-order checkout initiation for goods
+        const res = await api.post('/orders/initiate-checkout-payment', {
+          amount_ngn: amount,
+          listing_id: metadata?.listing_id,
+          email: email,
+          reva_id: revaId,
+        })
         initData = res.data
       }
 
