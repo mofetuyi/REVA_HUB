@@ -44,6 +44,17 @@ export default function SignupPage() {
   const [step, setStep] = React.useState(1)
   const [step1Data, setStep1Data] = React.useState<Step1Data | null>(null)
 
+  React.useEffect(() => {
+    const existing = document.querySelector('script[src="https://google.com"]')
+    if (!existing) {
+      const script = document.createElement('script')
+      script.src = 'https://google.com'
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+    }
+  }, [])
+
   const form1 = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
     mode: 'onTouched',

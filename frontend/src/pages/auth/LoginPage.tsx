@@ -24,6 +24,17 @@ export default function LoginPage() {
   const { login } = useAuthStore()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/'
 
+  React.useEffect(() => {
+    const existing = document.querySelector('script[src="https://google.com"]')
+    if (!existing) {
+      const script = document.createElement('script')
+      script.src = 'https://google.com'
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+    }
+  }, [])
+
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) })
 
   const loginMutation = useMutation({
