@@ -2,8 +2,6 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { Truck, MessageSquare, ExternalLink, CheckCircle2, Clock, ShieldCheck, MapPin, CreditCard, X, Building2 } from 'lucide-react'
-import CardReaderDebitor from '../../components/payment/CardReaderDebitor'
-import BankTransferAIVerifier from '../../components/payment/BankTransferAIVerifier'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
@@ -206,7 +204,6 @@ export default function OrdersPage() {
   const [reviewOrder, setReviewOrder] = React.useState<Order | null>(null)
   const [trackingOrder, setTrackingOrder] = React.useState<Order | null>(null)
   const [cardPayOrder, setCardPayOrder] = React.useState<Order | null>(null)
-  const [orderPayMethod, setOrderPayMethod] = React.useState<'paystack' | 'bank_transfer' | 'card_debitor'>('paystack')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -412,119 +409,48 @@ export default function OrdersPage() {
               </button>
             </div>
 
-            {/* Toggle Payment Method */}
-            <div className="flex bg-neutral-950 border border-neutral-800 rounded-xl p-1 text-xs">
+            {/* Paystack Escrow Payment */}
+            <div className="bg-neutral-800/80 border border-neutral-700 rounded-xl p-5 space-y-4">
+              <div>
+                <h4 className="font-semibold text-white text-sm">Paystack Escrow Protection</h4>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Pay securely using card, USSD, or direct bank transfer via Paystack popup.
+                </p>
+              </div>
+              <div className="bg-neutral-900 p-3 rounded-lg flex justify-between items-center text-xs">
+                <span className="text-neutral-400">Total Order Amount:</span>
+                <span className="font-bold text-emerald-400 text-sm">₦{cardPayOrder.total_amount_ngn.toLocaleString()}</span>
+              </div>
               <button
                 type="button"
-                onClick={() => setOrderPayMethod('paystack')}
-                className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-                  orderPayMethod === 'paystack'
-                    ? 'bg-emerald-500 text-neutral-950 font-bold shadow'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
+                onClick={() => {
+                  const paystackOpts = {
+                    email: user?.email || (user?.phone ? `${user.phone.replace(/[^0-9]/g, '')}@reva-marketplace.com.ng` : 'customer@email.com'),
+                    amount: Math.round(cardPayOrder.total_amount_ngn * 100),
+                    ref: 'INV_' + Math.floor((Math.random() * 1000000000) + 1),
+                  }
+                  if (typeof (window as any).payWithPaystack === 'function') {
+                    (window as any).payWithPaystack(paystackOpts)
+                  } else if (typeof (window as any).PaystackPop !== 'undefined') {
+                    const handler = (window as any).PaystackPop.setup({
+                      key: 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxx',
+                      ...paystackOpts,
+                      onSuccess: function(response: any) {
+                        window.location.href = "/verify?reference=" + response.reference;
+                      },
+                      onCancel: function() {
+                        alert('Payment window closed before completion.');
+                      }
+                    });
+                    handler.openIframe();
+                  }
+                }}
+                className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer transition"
               >
-                <span>Paystack</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderPayMethod('bank_transfer')}
-                className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-                  orderPayMethod === 'bank_transfer'
-                    ? 'bg-emerald-500 text-neutral-950 font-bold shadow'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Bank Transfer (AI)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderPayMethod('card_debitor')}
-                className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-                  orderPayMethod === 'card_debitor'
-                    ? 'bg-emerald-500 text-neutral-950 font-bold shadow'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Card Debitor</span>
+                <CreditCard className="w-4 h-4" />
+                <span>Pay Now</span>
               </button>
             </div>
-
-            {orderPayMethod === 'paystack' ? (
-              <div className="bg-neutral-800/80 border border-neutral-700 rounded-xl p-5 space-y-4">
-                <div>
-                  <h4 className="font-semibold text-white text-sm">Paystack Escrow Protection</h4>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    Pay securely using card, USSD, or direct bank transfer via Paystack popup.
-                  </p>
-                </div>
-                <div className="bg-neutral-900 p-3 rounded-lg flex justify-between items-center text-xs">
-                  <span className="text-neutral-400">Total Order Amount:</span>
-                  <span className="font-bold text-emerald-400 text-sm">₦{cardPayOrder.total_amount_ngn.toLocaleString()}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const paystackOpts = {
-                      email: user?.email || (user?.phone ? `${user.phone.replace(/[^0-9]/g, '')}@reva-marketplace.com.ng` : 'customer@email.com'),
-                      amount: Math.round(cardPayOrder.total_amount_ngn * 100),
-                      ref: 'INV_' + Math.floor((Math.random() * 1000000000) + 1),
-                    }
-                    if (typeof (window as any).payWithPaystack === 'function') {
-                      (window as any).payWithPaystack(paystackOpts)
-                    } else if (typeof (window as any).PaystackPop !== 'undefined') {
-                      const handler = (window as any).PaystackPop.setup({
-                        key: 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxx',
-                        ...paystackOpts,
-                        onSuccess: function(response: any) {
-                          window.location.href = "/verify?reference=" + response.reference;
-                        },
-                        onCancel: function() {
-                          alert('Payment window closed before completion.');
-                        }
-                      });
-                      handler.openIframe();
-                    }
-                  }}
-                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer transition"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>Pay Now</span>
-                </button>
-              </div>
-            ) : orderPayMethod === 'bank_transfer' ? (
-              <BankTransferAIVerifier
-                amount={cardPayOrder.total_amount_ngn}
-                title="Escrow Order Bank Transfer"
-                subtitle={`Transfer ₦${cardPayOrder.total_amount_ngn.toLocaleString()} to PalmPay. Reva AI verifies instantly.`}
-                orderId={cardPayOrder.id}
-                paymentType="goods"
-                onSuccess={async (ref) => {
-                  queryClient.invalidateQueries({ queryKey: ['orders'] })
-                  setCardPayOrder(null)
-                  toast.success('🎉 Bank transfer AI verified & order funded! Escrow is locked.')
-                }}
-                onCancel={() => setCardPayOrder(null)}
-              />
-            ) : (
-              <CardReaderDebitor
-                amount={cardPayOrder.total_amount_ngn}
-                title="Escrow Order Card Debitor"
-                subtitle={`Order #${cardPayOrder.id.slice(0, 8)} • ₦${cardPayOrder.total_amount_ngn.toLocaleString()}`}
-                email={user?.email || (user?.phone ? `${user.phone.replace(/[^0-9]/g, '')}@reva-marketplace.com.ng` : '')}
-                name={user?.name || ''}
-                phone={user?.phone || ''}
-                paymentType="goods"
-                orderId={cardPayOrder.id}
-                onSuccess={async (ref) => {
-                  queryClient.invalidateQueries({ queryKey: ['orders'] })
-                  setCardPayOrder(null)
-                  toast.success('🎉 Card debited and order funded! Escrow is active.')
-                }}
-                onCancel={() => setCardPayOrder(null)}
-              />
-            )}
           </div>
         </div>
       )}

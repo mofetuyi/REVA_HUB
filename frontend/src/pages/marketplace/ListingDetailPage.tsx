@@ -2,8 +2,6 @@ import React from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { MapPin, Package, Truck, Star, Eye, Calendar, Flag, ChevronLeft, ChevronRight, BookOpen, ShoppingCart, MessageSquare, ShieldCheck, CreditCard, Lock, Building2 } from 'lucide-react'
-import CardReaderDebitor from '../../components/payment/CardReaderDebitor'
-import BankTransferAIVerifier from '../../components/payment/BankTransferAIVerifier'
 import toast from 'react-hot-toast'
 import { api, extractError } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
@@ -122,7 +120,6 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
   const [notes, setNotes] = React.useState('')
   const [quantity, setQuantity] = React.useState(listing.quantity || 1)
   const [paymentConfirmed, setPaymentConfirmed] = React.useState(false)
-  const [paymentMethod, setPaymentMethod] = React.useState<'bank_transfer' | 'card_debitor' | 'paystack_link'>('bank_transfer')
 
   const totalAmount = (listing.price_ngn || 0) * (quantity || 1)
   const nameParts = (user?.name || '').trim().split(/\s+/)
@@ -294,124 +291,54 @@ function CheckoutModal({ listing, onClose }: { listing: Listing; onClose: () => 
           </div>
         </div>
 
-        {/* Payment Method Tabs */}
-        <div className="flex bg-cream-100 border border-cream-200 rounded-xl p-1 text-xs">
+        {/* Paystack Escrow Payment */}
+        <div className="border border-gold-300 bg-gold-50/60 p-4 rounded-xl space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-dark-900">Paystack Escrow Protection</span>
+            <span className="text-xs font-mono font-bold text-gold-700">Autofill: {formatNGN(totalAmount)}</span>
+          </div>
+          <p className="text-[11px] text-dark-600 leading-snug">
+            Pay safely via Paystack. Funds remain safely in escrow. Once you confirm delivery, Paystack automatically transfers <strong>94%</strong> directly to the seller.
+          </p>
           <button
             type="button"
-            onClick={() => setPaymentMethod('bank_transfer')}
-            className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-              paymentMethod === 'bank_transfer'
-                ? 'bg-emerald-600 text-white shadow'
-                : 'text-dark-600 hover:text-dark-900'
-            }`}
+            onClick={handlePayNowPaystack}
+            className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-md cursor-pointer"
           >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>Bank Transfer (AI)</span>
+            <span>Pay Now</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setPaymentMethod('card_debitor')}
-            className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-              paymentMethod === 'card_debitor'
-                ? 'bg-[#062E12] text-white shadow'
-                : 'text-dark-600 hover:text-dark-900'
-            }`}
+
+          <a
+            href={paystackUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setPaymentConfirmed(true)}
+            className="w-full py-2 px-4 bg-transparent border border-emerald-600 text-emerald-800 hover:bg-emerald-50 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors"
           >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span>Card Debitor</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPaymentMethod('paystack_link')}
-            className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-              paymentMethod === 'paystack_link'
-                ? 'bg-[#062E12] text-white shadow'
-                : 'text-dark-600 hover:text-dark-900'
-            }`}
-          >
-            <span>Paystack</span>
-          </button>
+            <span>Open Paystack Hosted Checkout</span>
+            <span>↗</span>
+          </a>
+          <label className="flex items-center gap-2 text-xs text-dark-700 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={paymentConfirmed}
+              onChange={(e) => setPaymentConfirmed(e.target.checked)}
+              className="rounded text-gold-500 focus:ring-gold-400"
+            />
+            <span>I have paid on Paystack</span>
+          </label>
         </div>
 
-        {paymentMethod === 'bank_transfer' ? (
-          <BankTransferAIVerifier
-            amount={totalAmount}
-            title="Goods Escrow Bank Transfer"
-            subtitle={`Transfer ${formatNGN(totalAmount)} to PalmPay. Reva AI verifies instantly.`}
-            revaId={buyerRevaId}
-            paymentType="goods"
-            onSuccess={handleCardDebitSuccess}
-            onCancel={onClose}
-          />
-        ) : paymentMethod === 'card_debitor' ? (
-          <CardReaderDebitor
-            amount={totalAmount}
-            title="Goods Escrow Card Debitor"
-            subtitle={`Debit ${formatNGN(totalAmount)} for ${listing.title}`}
-            email={buyerEmail}
-            name={user?.name || ''}
-            phone={buyerPhone}
-            paymentType="goods"
-            metadata={{
-              listing_id: listing.id,
-              quantity: quantity,
-              delivery_address: buyerAddress,
-            }}
-            onSuccess={handleCardDebitSuccess}
-            onCancel={onClose}
-          />
-        ) : (
-          <>
-            {/* Paystack Payment Section with autofilled amount & payment link */}
-            <div className="border border-gold-300 bg-gold-50/60 p-4 rounded-xl space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-dark-900">Paystack Escrow Protection</span>
-                <span className="text-xs font-mono font-bold text-gold-700">Autofill: {formatNGN(totalAmount)}</span>
-              </div>
-              <p className="text-[11px] text-dark-600 leading-snug">
-                Pay safely via Paystack. Funds remain safely in escrow. Once you confirm delivery, Paystack automatically transfers <strong>94%</strong> directly to the seller.
-              </p>
-              <button
-                type="button"
-                onClick={handlePayNowPaystack}
-                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-md cursor-pointer"
-              >
-                <span>Pay Now</span>
-              </button>
-
-              <a
-                href={paystackUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setPaymentConfirmed(true)}
-                className="w-full py-2 px-4 bg-transparent border border-emerald-600 text-emerald-800 hover:bg-emerald-50 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors"
-              >
-                <span>Open Paystack Hosted Checkout</span>
-                <span>↗</span>
-              </a>
-              <label className="flex items-center gap-2 text-xs text-dark-700 cursor-pointer pt-1">
-                <input
-                  type="checkbox"
-                  checked={paymentConfirmed}
-                  onChange={(e) => setPaymentConfirmed(e.target.checked)}
-                  className="rounded text-gold-500 focus:ring-gold-400"
-                />
-                <span>I have paid on Paystack</span>
-              </label>
-            </div>
-
-            <div className="flex gap-3 pt-1">
-              <Button variant="secondary" onClick={onClose} className="flex-1">Cancel</Button>
-              <Button
-                onClick={() => checkoutMutation.mutate()}
-                loading={checkoutMutation.isPending}
-                className="flex-1 bg-gold-500 hover:bg-gold-600 text-dark-900 font-bold"
-              >
-                Confirm & Place Order
-              </Button>
-            </div>
-          </>
-        )}
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" onClick={onClose} className="flex-1">Cancel</Button>
+          <Button
+            onClick={() => checkoutMutation.mutate()}
+            loading={checkoutMutation.isPending}
+            className="flex-1 bg-gold-500 hover:bg-gold-600 text-dark-900 font-bold"
+          >
+            Confirm & Place Order
+          </Button>
+        </div>
       </div>
     </div>
   )

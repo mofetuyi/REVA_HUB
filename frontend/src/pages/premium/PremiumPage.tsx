@@ -9,8 +9,6 @@ import {
   BarChart2, MessageSquare, CheckCircle, AlertCircle,
   ExternalLink, RefreshCw, Info, Copy, Check, X, Sparkles, Video, CreditCard, Building2
 } from 'lucide-react'
-import CardReaderDebitor from '../../components/payment/CardReaderDebitor'
-import BankTransferAIVerifier from '../../components/payment/BankTransferAIVerifier'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,7 +147,6 @@ export default function PremiumPage() {
   const [copied, setCopied] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [referenceInput, setReferenceInput] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<'bank_transfer' | 'card_debitor' | 'paystack_link'>('bank_transfer')
 
   // Sync user state on mount to reflect latest server subscription status
   React.useEffect(() => {
@@ -484,76 +481,7 @@ export default function PremiumPage() {
               </div>
             </div>
 
-            {/* Payment Method Switcher */}
-            <div className="flex bg-dark-900 border border-dark-700 rounded-xl p-1 mb-5 text-xs">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('bank_transfer')}
-                className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-                  paymentMethod === 'bank_transfer'
-                    ? 'bg-emerald-500 text-dark-950 font-bold shadow'
-                    : 'text-cream-300 hover:text-cream-100'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Bank Transfer (AI)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('card_debitor')}
-                className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-                  paymentMethod === 'card_debitor'
-                    ? 'bg-gold-500 text-dark-950 font-bold shadow'
-                    : 'text-cream-300 hover:text-cream-100'
-                }`}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Card Debitor</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('paystack_link')}
-                className={`flex-1 py-2 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-                  paymentMethod === 'paystack_link'
-                    ? 'bg-gold-500 text-dark-950 font-bold shadow'
-                    : 'text-cream-300 hover:text-cream-100'
-                }`}
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>Paystack</span>
-              </button>
-            </div>
-
-            {paymentMethod === 'bank_transfer' ? (
-              <BankTransferAIVerifier
-                amount={3000}
-                title="Direct Bank Transfer & AI Verification"
-                subtitle="Transfer ₦3,000 to PalmPay. Reva AI verifies instantly."
-                revaId={revaId}
-                paymentType="premium"
-                onSuccess={async (ref) => {
-                  await handleVerifyPayment(ref)
-                }}
-                onCancel={() => setShowModal(false)}
-              />
-            ) : paymentMethod === 'card_debitor' ? (
-              <CardReaderDebitor
-                amount={3000}
-                title="Premium Card Reader & Debitor"
-                subtitle="Debit ₦3,000 for 30-Day Reva Premium"
-                email={userEmail}
-                name={user?.name || ''}
-                phone={userPhone}
-                revaId={revaId}
-                paymentType="premium"
-                onSuccess={async (ref) => {
-                  await handleVerifyPayment(ref)
-                }}
-                onCancel={() => setShowModal(false)}
-              />
-            ) : (
-              <>
-                <div className="space-y-3.5 mb-6">
+            <div className="space-y-3.5 mb-6">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-cream-300 uppercase tracking-wider mb-1">
@@ -675,10 +603,8 @@ export default function PremiumPage() {
                     </p>
                   </div>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
+              </div>
+            </div>
       )}
     </div>
   )
