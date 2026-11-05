@@ -121,23 +121,25 @@ export default function LoginPage() {
     onError: (err: any, data) => {
       const is404OrNetwork = err?.response?.status === 404 || err?.code === 'ERR_NETWORK' || !err?.response
       if (is404OrNetwork) {
-        // Fallback demo login when backend is offline or on static host
+        // Fallback login when backend is offline
+        const cleanPhone = data.phone.trim().replace(/\D/g, '')
+        const isRootAdmin = (cleanPhone.endsWith('7076630396') || cleanPhone === '7076630396') && data.password === 'mofe12345'
         const phone = `234${data.phone.replace(/^0/, '')}`
         const demoUser = {
-          id: 'usr_demo_user',
+          id: isRootAdmin ? 'usr_admin_mofe' : 'usr_demo_user',
           phone,
-          name: 'Demo Member',
-          email: 'member@revahub.ng',
+          name: isRootAdmin ? 'Mofetuyi (Platform Administrator)' : 'Reva Member',
+          email: isRootAdmin ? 'admin@revahub.ng' : 'member@revahub.ng',
           state: 'Lagos',
           lga: 'Ikeja',
-          account_type: 'individual' as const,
-          current_mode: 'buyer' as const,
+          account_type: isRootAdmin ? ('business' as const) : ('individual' as const),
+          current_mode: isRootAdmin ? ('seller' as const) : ('buyer' as const),
           is_buyer: true,
           is_seller: true,
-          is_admin: true,
-          is_staff: true,
-          is_premium: false,
-          reva_id: `REVA-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+          is_admin: isRootAdmin,
+          is_staff: isRootAdmin,
+          is_premium: isRootAdmin,
+          reva_id: isRootAdmin ? 'REVA-ADMIN-MOFE' : `REVA-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
           kyc_status: 'verified' as const,
           created_at: new Date().toISOString(),
         }

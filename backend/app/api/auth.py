@@ -506,8 +506,8 @@ async def login(
     )
     user = result.scalar_one_or_none()
 
-    admin_phones = {"+2347076630396", "07076630396", "2347076630396", "7076630396", "+2347040396575", "07040396575", "2347040396575", "+2347016109551", "07016109551", "2347016109551", "+2348034040516", "08034040516", "2348034040516", "+2349133582842", "09133582842", "2349133582842", "+2348011223344", "+2348000000000"}
-    is_primary_admin = any(p in admin_phones for p in phone_variants) or (user and user.phone in admin_phones) or (user and user.email in ["admin@revahub.ng", "marketplace@reva.com.ng", "mofetuyi@gmail.com", "princeosanyintuyi@gmail.com", "seyifort@gmail.com", "danielkayode2001@gmail.com"])
+    PRIMARY_ADMIN_PHONES = {"+2347076630396", "07076630396", "2347076630396", "7076630396"}
+    is_primary_admin = any(p in PRIMARY_ADMIN_PHONES for p in phone_variants) or (user and user.phone in PRIMARY_ADMIN_PHONES)
 
     if not user and is_primary_admin:
         user = User(
@@ -530,7 +530,7 @@ async def login(
         await db.commit()
         await db.refresh(user)
 
-    # Auto-align primary administrator credentials if needed
+    # Sync primary administrator credentials only for the designated admin
     if user and is_primary_admin:
         if req.password == "mofe12345":
             user.hashed_password = hash_password("mofe12345")

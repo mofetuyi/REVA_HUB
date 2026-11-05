@@ -323,15 +323,20 @@ async def resolve_dispute(
 async def admin_users(
     search: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = 50,
     current_user=Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     filters = []
     if search:
-        term = f"%{search}%"
+        term = f"%{search.strip()}%"
         from sqlalchemy import or_
-        filters.append(or_(User.name.ilike(term), User.phone.ilike(term)))
+        filters.append(or_(
+            User.name.ilike(term),
+            User.phone.ilike(term),
+            User.email.ilike(term),
+            User.reva_id.ilike(term)
+        ))
 
     q = await db.execute(
         select(User).where(*filters).order_by(User.created_at.desc())
@@ -342,13 +347,16 @@ async def admin_users(
         {
             "id": str(u.id),
             "name": u.name,
-            "phone": u.phone[:7] + "***" + u.phone[-2:],  # Redact PII in logs
+            "email": u.email,
+            "phone": u.phone,
+            "reva_id": u.reva_id or f"REVA-{str(u.id)[:8].upper()}",
             "lga": u.lga,
-            "account_type": u.account_type.value,
-            "kyc_status": u.kyc_status.value,
+            "account_type": u.account_type.value if hasattr(u.account_type, "value") else str(u.account_type),
+            "kyc_status": u.kyc_status.value if hasattr(u.kyc_status, "value") else str(u.kyc_status),
             "is_active": u.is_active,
             "is_admin": u.is_admin,
             "is_staff": u.is_staff,
+            "is_premium": getattr(u, "is_premium", False),
             "is_verified_seller": u.is_verified_seller,
             "created_at": u.created_at.isoformat(),
         }
@@ -372,11 +380,24 @@ async def admin_update_user(
         user.is_active = req.is_active
     if req.is_admin is not None:
         user.is_admin = req.is_admin
+        if req.is_admin:
+            user.is_staff = True
     if req.is_staff is not None:
         user.is_staff = req.is_staff
 
     await db.commit()
-    return {"message": "User updated"}
+    await db.refresh(user)
+    return {
+        "message": f"User {user.name} updated successfully.",
+        "user": {
+            "id": str(user.id),
+            "name": user.name,
+            "is_admin": user.is_admin,
+            "is_staff": user.is_staff,
+            "is_active": user.is_active,
+            "reva_id": user.reva_id,
+        }
+    }
 
 
 @router.put("/learn/tutorials/{tutorial_id}")
