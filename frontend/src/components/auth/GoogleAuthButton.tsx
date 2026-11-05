@@ -27,14 +27,12 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
     }
 
     const handleGoogleResponse = async (response: any) => {
-      const userToken = response.credential
-      console.log('Official Google ID Token received:', userToken)
-
-      if (typeof (window as any).handleCredentialResponse === 'function') {
-        try {
-          (window as any).handleCredentialResponse(response)
-        } catch {}
+      const userToken = response?.credential
+      if (!userToken) {
+        console.warn('No credential received from Google')
+        return
       }
+      console.log('Official Google ID Token received:', userToken.substring(0, 15) + '...')
 
       try {
         const res = await api.post('/auth/google', { idToken: userToken, credential: userToken })
@@ -43,13 +41,15 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
             { access_token: res.data.access_token, refresh_token: res.data.refresh_token },
             res.data.user
           )
-          toast.success(`Welcome, ${res.data.user?.name || 'User'}! Logged in with Google 🎉`)
+          toast.success(`Welcome to Reva Hub, ${res.data.user?.name || 'User'}! 🎉`)
           navigate(redirectTo, { replace: true })
         } else {
           toast.error(res.data?.message || 'Google sign-in failed')
         }
       } catch (err: any) {
-        toast.error(err.response?.data?.detail || 'Google authentication failed')
+        console.error('Google backend authentication error:', err)
+        const errorMsg = err.response?.data?.detail || err.message || 'Google authentication failed'
+        toast.error(errorMsg)
       }
     }
 

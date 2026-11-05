@@ -214,19 +214,36 @@ async def google_auth(
 
     email = email.strip().lower()
 
-    # Find existing user by email or google_id
-    stmt = select(User).where((User.email == email) | (User.google_id == google_id))
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
+    # Find existing user by email first, or by google_id
+    user = None
+    stmt_email = select(User).where(func.lower(User.email) == email)
+    result_email = await db.execute(stmt_email)
+    existing_users = result_email.scalars().all()
+    if existing_users:
+        user = existing_users[0]
+
+    if not user and google_id:
+        stmt_gid = select(User).where(User.google_id == google_id)
+        result_gid = await db.execute(stmt_gid)
+        g_users = result_gid.scalars().all()
+        if g_users:
+            user = g_users[0]
 
     if user:
         if google_id and not user.google_id:
             user.google_id = google_id
         if avatar_url and not user.avatar_url:
             user.avatar_url = avatar_url
+        if name and (not user.name or user.name == "Reva Member"):
+            user.name = name
         user.is_email_verified = True
         user.last_login_at = datetime.now(timezone.utc)
-        await db.commit()
+        try:
+            await db.commit()
+            await db.refresh(user)
+        except Exception as commit_err:
+            logger.warning("Error committing user update on google auth: %s", commit_err)
+            await db.rollback()
     else:
         # Create new user pre-verified via Google
         new_name = name or email.split("@")[0].replace(".", " ").title()
@@ -254,31 +271,49 @@ async def google_auth(
             created_at=datetime.now(timezone.utc),
             last_login_at=datetime.now(timezone.utc),
         )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
+        try:
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        except Exception as create_err:
+            logger.warning("Error creating new Google user, rolling back to check existing: %s", create_err)
+            await db.rollback()
+            # Fetch existing user in case of race condition
+            res_retry = await db.execute(select(User).where(func.lower(User.email) == email))
+            retry_users = res_retry.scalars().all()
+            if retry_users:
+                user = retry_users[0]
+            else:
+                raise HTTPException(status_code=500, detail="Failed to create user account. Please try again.")
 
     access_token = create_access_token(str(user.id))
     refresh_token = create_refresh_token(str(user.id))
-    await store_refresh_token(str(user.id), refresh_token, redis)
+    try:
+        await store_refresh_token(str(user.id), refresh_token, redis)
+    except Exception as re_err:
+        logger.warning("Could not store refresh token in redis on google auth: %s", re_err)
+
+    user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "buyer")
+    kyc_status_str = user.kyc_status.value if hasattr(user.kyc_status, "value") else str(user.kyc_status or "verified")
+    account_type_str = user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type or "individual")
 
     user_dict = {
         "id": str(user.id),
-        "name": user.name,
+        "name": user.name or "Google Member",
         "email": user.email,
         "phone": user.phone or "",
         "avatar_url": user.avatar_url,
         "reva_id": user.reva_id,
-        "kyc_status": user.kyc_status.value if hasattr(user.kyc_status, "value") else str(user.kyc_status),
-        "account_type": user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type),
-        "state": user.state,
-        "lga": user.lga,
+        "kyc_status": kyc_status_str,
+        "account_type": account_type_str,
+        "state": user.state or "Lagos",
+        "lga": user.lga or "Ikeja",
         "is_buyer": user.is_buyer,
         "is_seller": user.is_seller,
         "is_admin": user.is_admin,
         "is_staff": user.is_staff,
         "is_premium": user.is_premium,
-        "current_mode": user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode),
+        "current_mode": user_mode_str,
     }
 
     return {
@@ -289,7 +324,7 @@ async def google_auth(
         "token_type": "bearer",
         "user_id": str(user.id),
         "name": user.name,
-        "mode": user.current_mode.value,
+        "mode": user_mode_str,
         "user": user_dict,
     }
 
