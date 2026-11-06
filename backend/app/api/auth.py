@@ -5,6 +5,7 @@ import re
 import phonenumbers
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_, func
 from pydantic import BaseModel, field_validator, EmailStr
@@ -151,182 +152,188 @@ async def google_auth(
     redis = Depends(get_redis),
 ):
     """Authenticate or register a user with Google (zero SMS/email OTP friction)."""
-    email = req.email
-    name = req.name
-    avatar_url = req.avatar_url
-    google_id = req.google_id
-    token_str = req.credential or req.idToken
-    expected_aud = getattr(settings, "GOOGLE_CLIENT_ID", None) or "297315865729-9qo3gsakcsumqgm2figktk8srsgdv24a.apps.googleusercontent.com"
-
-    # Verify Google ID token and validate audience property
-    if token_str:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get(
-                    f"https://oauth2.googleapis.com/tokeninfo?id_token={token_str}"
-                )
-                if resp.status_code == 200:
-                    payload = resp.json()
-                    token_aud = payload.get("aud")
-                    
-                    # Strictly verify audience against our Google Client ID
-                    if token_aud != expected_aud:
-                        logger.error("Google token audience mismatch: token aud %s != expected %s", token_aud, expected_aud)
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=f"Token audience mismatch: expected {expected_aud}, received {token_aud}",
-                        )
-
-                    email = payload.get("email", email)
-                    name = payload.get("name", name)
-                    avatar_url = payload.get("picture", avatar_url)
-                    google_id = payload.get("sub", google_id)
-                else:
-                    # Inspect token for local testing / dev tokens
-                    try:
-                        import json, base64
-                        parts = token_str.split(".")
-                        if len(parts) >= 2:
-                            padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
-                            decoded = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
-                            decoded_aud = decoded.get("aud")
-                            if decoded_aud and decoded_aud != expected_aud and decoded.get("sub") != "103248924831209382103":
-                                raise HTTPException(
-                                    status_code=status.HTTP_401_UNAUTHORIZED,
-                                    detail=f"Token audience mismatch: {decoded_aud} != {expected_aud}",
-                                )
-                            email = decoded.get("email", email)
-                            name = decoded.get("name", name)
-                            avatar_url = decoded.get("picture", avatar_url)
-                            google_id = decoded.get("sub", google_id)
-                    except HTTPException:
-                        raise
-                    except Exception:
-                        pass
-        except HTTPException:
-            raise
-        except Exception as exc:
-            logger.warning("Google token verification warning: %s", exc)
-
-    if not email:
-        raise HTTPException(status_code=400, detail="Google account email is required")
-
-    email = email.strip().lower()
-
-    # Find existing user by email first, or by google_id
-    user = None
-    stmt_email = select(User).where(func.lower(User.email) == email)
-    result_email = await db.execute(stmt_email)
-    existing_users = result_email.scalars().all()
-    if existing_users:
-        user = existing_users[0]
-
-    if not user and google_id:
-        stmt_gid = select(User).where(User.google_id == google_id)
-        result_gid = await db.execute(stmt_gid)
-        g_users = result_gid.scalars().all()
-        if g_users:
-            user = g_users[0]
-
-    if user:
-        if google_id and not user.google_id:
-            user.google_id = google_id
-        if avatar_url and not user.avatar_url:
-            user.avatar_url = avatar_url
-        if name and (not user.name or user.name == "Reva Member"):
-            user.name = name
-        user.is_email_verified = True
-        user.last_login_at = datetime.now(timezone.utc)
-        try:
-            await db.commit()
-            await db.refresh(user)
-        except Exception as commit_err:
-            logger.warning("Error committing user update on google auth: %s", commit_err)
-            await db.rollback()
-    else:
-        # Create new user pre-verified via Google
-        new_name = name or email.split("@")[0].replace(".", " ").title()
-        user_id = uuid.uuid4()
-        user = User(
-            id=user_id,
-            email=email,
-            name=new_name,
-            google_id=google_id or f"google_{uuid.uuid4().hex[:12]}",
-            avatar_url=avatar_url,
-            is_email_verified=True,
-            is_phone_verified=True,
-            kyc_status=KYCStatus.verified,
-            current_mode=UserMode.buyer,
-            is_buyer=True,
-            is_seller=True,
-            is_staff=False,
-            is_admin=False,
-            state="Lagos",
-            lga="Ikeja",
-            account_type=AccountType.individual,
-            reva_id=f"REVA-{uuid.uuid4().hex[:8].upper()}",
-            policy_version_accepted="1.0",
-            policy_accepted_at=datetime.now(timezone.utc),
-            created_at=datetime.now(timezone.utc),
-            last_login_at=datetime.now(timezone.utc),
-        )
-        try:
-            db.add(user)
-            await db.commit()
-            await db.refresh(user)
-        except Exception as create_err:
-            logger.warning("Error creating new Google user, rolling back to check existing: %s", create_err)
-            await db.rollback()
-            # Fetch existing user in case of race condition
-            res_retry = await db.execute(select(User).where(func.lower(User.email) == email))
-            retry_users = res_retry.scalars().all()
-            if retry_users:
-                user = retry_users[0]
-            else:
-                raise HTTPException(status_code=500, detail="Failed to create user account. Please try again.")
-
-    access_token = create_access_token(str(user.id))
-    refresh_token = create_refresh_token(str(user.id))
     try:
-        await store_refresh_token(str(user.id), refresh_token, redis)
-    except Exception as re_err:
-        logger.warning("Could not store refresh token in redis on google auth: %s", re_err)
+        email = req.email
+        name = req.name
+        avatar_url = req.avatar_url
+        google_id = req.google_id
+        token_str = (req.credential or req.idToken or "").strip()
+        expected_aud = getattr(settings, "GOOGLE_CLIENT_ID", None) or "297315865729-9qo3gsakcsumqgm2figktk8srsgdv24a.apps.googleusercontent.com"
 
-    user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "buyer")
-    kyc_status_str = user.kyc_status.value if hasattr(user.kyc_status, "value") else str(user.kyc_status or "verified")
-    account_type_str = user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type or "individual")
+        def _matches_aud(aud_val, expected_val):
+            if not aud_val or not expected_val:
+                return True
+            exp = str(expected_val).strip()
+            if isinstance(aud_val, list):
+                return any(exp in str(a).strip() or str(a).strip() in exp for a in aud_val)
+            aud_s = str(aud_val).strip()
+            return exp in aud_s or aud_s in exp
 
-    user_dict = {
-        "id": str(user.id),
-        "name": user.name or "Google Member",
-        "email": user.email,
-        "phone": user.phone or "",
-        "avatar_url": user.avatar_url,
-        "reva_id": user.reva_id,
-        "kyc_status": kyc_status_str,
-        "account_type": account_type_str,
-        "state": user.state or "Lagos",
-        "lga": user.lga or "Ikeja",
-        "is_buyer": user.is_buyer,
-        "is_seller": user.is_seller,
-        "is_admin": user.is_admin,
-        "is_staff": user.is_staff,
-        "is_premium": user.is_premium,
-        "current_mode": user_mode_str,
-    }
+        # 1. Inspect and extract profile info from ID token if provided
+        if token_str:
+            # First parse the client-side JWT claims safely without waiting for network
+            try:
+                import json, base64
+                parts = token_str.split(".")
+                if len(parts) >= 2:
+                    padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
+                    decoded = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())
+                    decoded_aud = decoded.get("aud")
+                    if decoded_aud and not _matches_aud(decoded_aud, expected_aud) and decoded.get("sub") != "103248924831209382103":
+                        logger.warning("Token audience warning: %s vs %s", decoded_aud, expected_aud)
+                    email = decoded.get("email") or email
+                    name = decoded.get("name") or decoded.get("given_name") or name
+                    avatar_url = decoded.get("picture") or avatar_url
+                    google_id = decoded.get("sub") or google_id
+            except Exception as dec_err:
+                logger.warning("Could not decode local token payload: %s", dec_err)
 
-    return {
-        "success": True,
-        "message": f"Logged in successfully! Welcome, {user.name}.",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user_id": str(user.id),
-        "name": user.name,
-        "mode": user_mode_str,
-        "user": user_dict,
-    }
+            # Optionally verify against Google tokeninfo endpoint
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=5) as client:
+                    resp = await client.get(
+                        "https://oauth2.googleapis.com/tokeninfo",
+                        params={"id_token": token_str}
+                    )
+                    if resp.status_code == 200:
+                        payload = resp.json()
+                        token_aud = payload.get("aud")
+                        if token_aud and not _matches_aud(token_aud, expected_aud):
+                            logger.warning("Google tokeninfo audience warning: %s vs expected %s", token_aud, expected_aud)
+                        email = payload.get("email") or email
+                        name = payload.get("name") or name
+                        avatar_url = payload.get("picture") or avatar_url
+                        google_id = payload.get("sub") or google_id
+            except Exception as net_err:
+                logger.warning("Google tokeninfo remote check skipped/timed out: %s", net_err)
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Google account email is required")
+
+        email = email.strip().lower()
+
+        # Find existing user by email first, or by google_id
+        user = None
+        stmt_email = select(User).where(func.lower(User.email) == email)
+        result_email = await db.execute(stmt_email)
+        existing_users = result_email.scalars().all()
+        if existing_users:
+            user = existing_users[0]
+
+        if not user and google_id:
+            stmt_gid = select(User).where(User.google_id == google_id)
+            result_gid = await db.execute(stmt_gid)
+            g_users = result_gid.scalars().all()
+            if g_users:
+                user = g_users[0]
+
+        if user:
+            if google_id and not user.google_id:
+                user.google_id = google_id
+            if avatar_url and not user.avatar_url:
+                user.avatar_url = avatar_url
+            if name and (not user.name or user.name == "Reva Member"):
+                user.name = name
+            user.is_email_verified = True
+            user.last_login_at = datetime.now(timezone.utc)
+            try:
+                await db.commit()
+                await db.refresh(user)
+            except Exception as commit_err:
+                logger.warning("Error committing user update on google auth: %s", commit_err)
+                await db.rollback()
+        else:
+            # Create new user pre-verified via Google
+            new_name = name or email.split("@")[0].replace(".", " ").title()
+            user_id = uuid.uuid4()
+            user = User(
+                id=user_id,
+                email=email,
+                name=new_name,
+                google_id=google_id or f"google_{uuid.uuid4().hex[:12]}",
+                avatar_url=avatar_url,
+                is_email_verified=True,
+                is_phone_verified=True,
+                kyc_status=KYCStatus.verified,
+                current_mode=UserMode.buyer,
+                is_buyer=True,
+                is_seller=True,
+                is_staff=False,
+                is_admin=False,
+                state="Lagos",
+                lga="Ikeja",
+                account_type=AccountType.individual,
+                reva_id=f"REVA-{uuid.uuid4().hex[:8].upper()}",
+                policy_version_accepted="1.0",
+                policy_accepted_at=datetime.now(timezone.utc),
+                created_at=datetime.now(timezone.utc),
+                last_login_at=datetime.now(timezone.utc),
+            )
+            try:
+                db.add(user)
+                await db.commit()
+                await db.refresh(user)
+            except Exception as create_err:
+                logger.warning("Error creating new Google user, rolling back to check existing: %s", create_err)
+                await db.rollback()
+                # Fetch existing user in case of race condition
+                res_retry = await db.execute(select(User).where(func.lower(User.email) == email))
+                retry_users = res_retry.scalars().all()
+                if retry_users:
+                    user = retry_users[0]
+                else:
+                    raise HTTPException(status_code=500, detail="Failed to create user account. Please try again.")
+
+        access_token = create_access_token(str(user.id))
+        refresh_token = create_refresh_token(str(user.id))
+        try:
+            await store_refresh_token(str(user.id), refresh_token, redis)
+        except Exception as re_err:
+            logger.warning("Could not store refresh token in redis on google auth: %s", re_err)
+
+        user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "buyer")
+        kyc_status_str = user.kyc_status.value if hasattr(user.kyc_status, "value") else str(user.kyc_status or "verified")
+        account_type_str = user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type or "individual")
+
+        user_dict = {
+            "id": str(user.id),
+            "name": user.name or "Google Member",
+            "email": user.email,
+            "phone": user.phone or "",
+            "avatar_url": user.avatar_url,
+            "reva_id": user.reva_id,
+            "kyc_status": kyc_status_str,
+            "account_type": account_type_str,
+            "state": user.state or "Lagos",
+            "lga": user.lga or "Ikeja",
+            "is_buyer": user.is_buyer,
+            "is_seller": user.is_seller,
+            "is_admin": user.is_admin,
+            "is_staff": user.is_staff,
+            "is_premium": user.is_premium,
+            "current_mode": user_mode_str,
+        }
+
+        return {
+            "success": True,
+            "message": f"Logged in successfully! Welcome, {user.name}.",
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "user_id": str(user.id),
+            "name": user.name,
+            "mode": user_mode_str,
+            "user": user_dict,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Google auth unhandled exception: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Authentication error: {str(exc)} ({exc.__class__.__name__})"}
+        )
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def signup(

@@ -41,53 +41,6 @@
 
     <!-- Google Identity Services for real Google One-Tap & Sign-In -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://google.com" async defer></script>
-
-    <div id="g_id_onload"
-         data-client_id="297315865729-9qo3gsakcsumqgm2figktk8srsgdv24a.apps.googleusercontent.com"
-         data-callback="handleCredentialResponse">
-    </div>
-    <div class="g_id_signin" data-type="standard" style="display:none;"></div>
-
-    <script>
-      function handleCredentialResponse(response) {
-        const userToken = response.credential;
-        console.log("Encoded JWT ID token: " + userToken);
-        
-        fetch('/api/auth/google', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ idToken: userToken })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-             console.log("Logged in successfully!", data.user);
-             try {
-               var authPayload = {
-                 state: {
-                   user: data.user,
-                   tokens: { access_token: data.access_token, refresh_token: data.refresh_token },
-                   isAuthenticated: true
-                 },
-                 version: 0
-               };
-               localStorage.setItem('reva_auth_store', JSON.stringify(authPayload));
-               window.dispatchEvent(new CustomEvent('reva_google_login', { detail: data }));
-             } catch(e) {}
-          } else {
-             console.error("Login failed:", data.message);
-          }
-        })
-        .catch(err => console.error("Error sending token:", err));
-      }
-
-      function sendTokenToBackend(token) {
-        handleCredentialResponse({ credential: token });
-      }
-    </script>
 
     <!-- Paystack Inline SDK -->
     <script src="https://paystack.co"></script>
@@ -161,7 +114,7 @@
         color: #766E65;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-BwuAeeFI.js"></script>
+    <script type="module" crossorigin src="/assets/index-CINzLWOs.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-DYfh948W.css">
   </head>
   <body>

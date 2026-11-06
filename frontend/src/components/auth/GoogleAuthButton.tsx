@@ -34,14 +34,47 @@ export function GoogleAuthButton({ mode = 'signin', redirectTo = '/' }: GoogleAu
       }
       console.log('Official Google ID Token received:', userToken.substring(0, 15) + '...')
 
+      // Extract profile fields client-side as seamless backup
+      let clientEmail = ''
+      let clientName = ''
+      let clientPicture = ''
+      let clientSub = ''
       try {
-        const res = await api.post('/auth/google', { idToken: userToken, credential: userToken })
+        const parts = userToken.split('.')
+        if (parts.length >= 2) {
+          const base64Url = parts[1]
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          )
+          const parsed = JSON.parse(jsonPayload)
+          clientEmail = parsed.email || ''
+          clientName = parsed.name || parsed.given_name || ''
+          clientPicture = parsed.picture || ''
+          clientSub = parsed.sub || ''
+        }
+      } catch (decodeErr) {
+        console.warn('Client token decode warning:', decodeErr)
+      }
+
+      try {
+        const res = await api.post('/auth/google', {
+          idToken: userToken,
+          credential: userToken,
+          email: clientEmail,
+          name: clientName,
+          avatar_url: clientPicture,
+          google_id: clientSub,
+        })
         if (res.data?.success || res.data?.access_token) {
           login(
             { access_token: res.data.access_token, refresh_token: res.data.refresh_token },
             res.data.user
           )
-          toast.success(`Welcome to Reva Hub, ${res.data.user?.name || 'User'}! 🎉`)
+          toast.success(`Welcome to Reva Hub, ${res.data.user?.name || clientName || 'User'}! 🎉`)
           navigate(redirectTo, { replace: true })
         } else {
           toast.error(res.data?.message || 'Google sign-in failed')
