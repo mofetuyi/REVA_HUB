@@ -1,5 +1,9 @@
 """Auth API routes."""
 
+import uuid
+import json
+import base64
+import httpx
 import logging
 import re
 import phonenumbers
