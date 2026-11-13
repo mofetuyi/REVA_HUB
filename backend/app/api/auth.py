@@ -465,7 +465,7 @@ async def verify_otp(
             (User.phone == clean_phone) | (User.phone == req.phone.strip()) | (User.phone == local_phone) | (User.phone == plus_phone)
         )
     )
-    user = result.scalar_one_or_none()
+    user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -550,7 +550,7 @@ async def login(
     result = await db.execute(
         select(User).where(or_(User.phone.in_(list(phone_variants)), User.email.ilike(raw_input)))
     )
-    user = result.scalar_one_or_none()
+    user = result.scalars().first()
 
     PRIMARY_ADMIN_PHONES = {"+2347076630396", "07076630396", "2347076630396", "7076630396"}
     is_primary_admin = any(p in PRIMARY_ADMIN_PHONES for p in phone_variants) or (user and user.phone in PRIMARY_ADMIN_PHONES)

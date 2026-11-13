@@ -88,6 +88,13 @@ def _val(x):
     return x.value if hasattr(x, "value") else str(x) if x is not None else ""
 
 
+def _parse_listing_uuid(val: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(str(val))
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+
 def _listing_to_dict(listing: Listing, include_seller: bool = False) -> dict:
     photos_list = []
     try:
@@ -440,7 +447,8 @@ async def update_listing(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing_uuid = _parse_listing_uuid(listing_id)
+    result = await db.execute(select(Listing).where(Listing.id == listing_uuid))
     listing = result.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -491,7 +499,8 @@ async def delist_listing(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing_uuid = _parse_listing_uuid(listing_id)
+    result = await db.execute(select(Listing).where(Listing.id == listing_uuid))
     listing = result.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -510,7 +519,8 @@ async def flag_listing(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing_uuid = _parse_listing_uuid(listing_id)
+    result = await db.execute(select(Listing).where(Listing.id == listing_uuid))
     listing = result.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -528,7 +538,8 @@ async def renew_listing(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing_uuid = _parse_listing_uuid(listing_id)
+    result = await db.execute(select(Listing).where(Listing.id == listing_uuid))
     listing = result.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")

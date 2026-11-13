@@ -8,30 +8,40 @@ from app.core.database import AsyncSessionLocal
 from app.models.user import User
 from app.models.order import Order, OrderStatus, OrderEvent
 
+from app.core.config import settings
+
 router = APIRouter(tags=["paystack_webhook"])
 logger = logging.getLogger(__name__)
 
-SECRET_KEY = "sk_test_705cc6033f529b9cd756010cf4019eb22bb14f08"
+DEFAULT_SECRET_KEY = "sk_test_705cc6033f529b9cd756010cf4019eb22bb14f08"
 
 @router.post("/api/paystack-webhook")
 @router.post("/paystack-webhook")
 async def paystack_webhook(request: Request, x_paystack_signature: str = Header(None)):
-    # 1. Capture the exact raw byte string sent by Paystack
+    # 1. Capture and validate payload size
     raw_body = await request.body()
+    if len(raw_body) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Payload too large")
+
+    secret_key = settings.PAYMENT_WEBHOOK_SECRET or settings.PAYMENT_SECRET_KEY or DEFAULT_SECRET_KEY
     
     # 2. Compute local hash signature
     computed_signature = hmac.new(
-        SECRET_KEY.encode('utf-8'),
+        secret_key.encode('utf-8'),
         raw_body,
         hashlib.sha512
     ).hexdigest()
 
-    # 3. Check for unauthorized access
-    if computed_signature != x_paystack_signature:
+    # 3. Check for unauthorized access using constant-time comparison to prevent timing attacks
+    if not x_paystack_signature or not hmac.compare_digest(computed_signature, x_paystack_signature):
+        logger.warning("Paystack webhook signature mismatch")
         raise HTTPException(status_code=401, detail="Invalid Signature")
 
     # 4. Success. Parse JSON data out of raw bytes
-    event = await request.json()
+    try:
+        event = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
     
     if event.get("event") == "charge.success":
         data = event.get("data")

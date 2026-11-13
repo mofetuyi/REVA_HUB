@@ -12,14 +12,20 @@ if "asyncpg" in settings.async_database_url:
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     connect_args["ssl"] = ctx
+    # Neon pooled connections (PgBouncer in transaction mode) require disabling prepared statement cache
+    if "pooler" in settings.async_database_url or "neon.tech" in settings.async_database_url:
+        connect_args["statement_cache_size"] = 0
+        connect_args["prepared_statement_cache_size"] = 0
 
 engine = create_async_engine(
     settings.async_database_url,
     connect_args=connect_args,
     echo=settings.is_development,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_recycle=300,
+    pool_timeout=30,
+    pool_size=15,
+    max_overflow=25,
 )
 
 AsyncSessionLocal = async_sessionmaker(

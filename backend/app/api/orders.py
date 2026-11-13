@@ -139,13 +139,21 @@ async def list_orders(
     return [_order_to_dict(o) for o in orders]
 
 
+def _parse_uuid(val: str, entity_name: str = "Order") -> uuid.UUID:
+    try:
+        return uuid.UUID(str(val))
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(status_code=404, detail=f"{entity_name} not found")
+
+
 @router.get("/{order_id}")
 async def get_order(
     order_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Order).where(Order.id == order_id))
+    order_uuid = _parse_uuid(order_id, "Order")
+    result = await db.execute(select(Order).where(Order.id == order_uuid))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -161,7 +169,8 @@ async def initiate_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """Buyer initiates payment – creates Paystack checkout session."""
-    result = await db.execute(select(Order).where(Order.id == order_id))
+    order_uuid = _parse_uuid(order_id, "Order")
+    result = await db.execute(select(Order).where(Order.id == order_uuid))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -267,7 +276,8 @@ async def mark_in_transit(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Order).where(Order.id == order_id))
+    order_uuid = _parse_uuid(order_id, "Order")
+    result = await db.execute(select(Order).where(Order.id == order_uuid))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -298,7 +308,8 @@ async def direct_checkout(
     """Direct instant checkout: Buyer enters delivery address in Lagos.
     Autofills payment link and creates/funds the order.
     """
-    listing_res = await db.execute(select(Listing).where(Listing.id == req.listing_id))
+    listing_uuid = _parse_uuid(req.listing_id, "Listing")
+    listing_res = await db.execute(select(Listing).where(Listing.id == listing_uuid))
     listing = listing_res.scalar_one_or_none()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -407,7 +418,8 @@ async def confirm_delivery(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Order).where(Order.id == order_id))
+    order_uuid = _parse_uuid(order_id, "Order")
+    result = await db.execute(select(Order).where(Order.id == order_uuid))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -493,7 +505,8 @@ async def raise_dispute(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Order).where(Order.id == order_id))
+    order_uuid = _parse_uuid(order_id, "Order")
+    result = await db.execute(select(Order).where(Order.id == order_uuid))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -638,7 +651,8 @@ async def verify_order_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """Verifies card payment for an order and transitions it to funded (escrow locked)."""
-    result = await db.execute(select(Order).where(Order.id == order_id))
+    order_uuid = _parse_uuid(order_id, "Order")
+    result = await db.execute(select(Order).where(Order.id == order_uuid))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -672,7 +686,8 @@ async def verify_order_transfer_ai(
     db: AsyncSession = Depends(get_db),
 ):
     """Verifies a direct bank transfer to Access Bank 1960630256 or Ecobank 1960094404 using Gemini Multimodal Vision AI."""
-    result = await db.execute(select(Order).where(Order.id == order_id))
+    order_uuid = _parse_uuid(order_id, "Order")
+    result = await db.execute(select(Order).where(Order.id == order_uuid))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
