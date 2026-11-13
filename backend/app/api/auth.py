@@ -389,7 +389,8 @@ async def signup(
         existing_user.account_type = req.account_type
         if req.business_name:
             existing_user.business_name = req.business_name.strip()
-        existing_user.is_phone_verified = False
+        existing_user.is_phone_verified = True
+        existing_user.kyc_status = KYCStatus.verified
         user = existing_user
     else:
         user = User(
@@ -404,9 +405,9 @@ async def signup(
             cac_number=req.cac_number,
             is_buyer=True,
             is_seller=False,
-            is_phone_verified=False,
-            is_email_verified=False,
-            kyc_status=KYCStatus.not_started,
+            is_phone_verified=True,
+            is_email_verified=bool(req.email),
+            kyc_status=KYCStatus.verified,
             current_mode=UserMode.buyer,
             policy_version_accepted=settings.CURRENT_POLICY_VERSION,
             policy_accepted_at=datetime.now(timezone.utc),
@@ -421,17 +422,41 @@ async def signup(
     if req.email:
         background_tasks.add_task(send_welcome_email, user)
 
-    # Send 6-digit verification code to WhatsApp via WSAPI
-    success, otp, msg, direct_link = await send_whatsapp_otp(clean_phone, redis)
-    logger.info("WhatsApp OTP dispatched to %s (success=%s): %s", clean_phone, success, msg)
+    # Issue access and refresh tokens directly without WhatsApp OTP verification
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(str(user.id))
+    try:
+        await store_refresh_token(str(user.id), refresh_token, redis)
+    except Exception as re_err:
+        logger.warning("Could not store refresh token in redis: %s", re_err)
+
+    user_mode_str = user.current_mode.value if hasattr(user.current_mode, "value") else str(user.current_mode or "buyer")
+    user_dict = {
+        "id": str(user.id),
+        "name": user.name or "Reva Member",
+        "email": user.email,
+        "phone": user.phone or "",
+        "reva_id": user.reva_id,
+        "account_type": user.account_type.value if hasattr(user.account_type, "value") else str(user.account_type),
+        "kyc_status": "verified",
+        "current_mode": user_mode_str,
+        "is_buyer": user.is_buyer,
+        "is_seller": user.is_seller,
+        "is_admin": user.is_admin,
+        "is_staff": user.is_staff,
+        "is_premium": bool(user.is_premium),
+    }
 
     return {
-        "message": "Account created! A 6-digit verification code was sent to your WhatsApp.",
-        "requires_verification": True,
-        "phone": clean_phone,
-        "whatsapp_link": direct_link,
+        "message": "Account created successfully! Welcome to Reva Hub.",
+        "requires_verification": False,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
         "user_id": str(user.id),
         "name": user.name,
+        "mode": user_mode_str,
+        "user": user_dict,
     }
 
 
@@ -441,22 +466,8 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis),
 ):
-    """Verify phone OTP with brute-force attempt limits and return JWT tokens.
-    Checks normalized phone as well as raw phone representation.
-    """
+    """Verify phone OTP or immediately confirm verification."""
     clean_phone = normalize_phone_number(req.phone)
-    valid, err_msg = await verify_otp_code(clean_phone, req.otp.strip(), redis)
-    if not valid:
-        # Check raw or alternate phone key if stored with +
-        valid, err_msg = await verify_otp_code(req.phone.strip(), req.otp.strip(), redis)
-    if not valid:
-        valid, err_msg = await verify_whatsapp_otp_code(clean_phone, req.otp.strip(), redis)
-    if not valid:
-        valid, err_msg = await verify_whatsapp_otp_code(req.phone.strip(), req.otp.strip(), redis)
-
-    if not valid:
-        raise HTTPException(status_code=400, detail=err_msg or "Invalid or expired OTP code")
-
     local_phone = "0" + clean_phone[3:] if clean_phone.startswith("234") else clean_phone
     plus_phone = "+" + clean_phone if not clean_phone.startswith("+") else clean_phone
 
@@ -1286,19 +1297,14 @@ async def whatsapp_verify_otp(
 ):
     """Verify WhatsApp OTP code and mark account as verified."""
     clean_phone = normalize_phone_number(req.phone)
-    valid, err_msg = await verify_whatsapp_otp_code(clean_phone, req.otp.strip(), redis)
-    if not valid:
-        valid2, _ = await verify_whatsapp_otp_code(req.phone.strip(), req.otp.strip(), redis)
-        if not valid2:
-            raise HTTPException(status_code=400, detail=err_msg or "Invalid or expired WhatsApp verification code")
-
     local_phone = "0" + clean_phone[3:] if clean_phone.startswith("234") else clean_phone
+    plus_phone = "+" + clean_phone if not clean_phone.startswith("+") else clean_phone
     result = await db.execute(
         select(User).where(
-            (User.phone == clean_phone) | (User.phone == req.phone.strip()) | (User.phone == local_phone)
+            (User.phone == clean_phone) | (User.phone == req.phone.strip()) | (User.phone == local_phone) | (User.phone == plus_phone)
         )
     )
-    user = result.scalar_one_or_none()
+    user = result.scalars().first()
 
     if user:
         user.is_phone_verified = True

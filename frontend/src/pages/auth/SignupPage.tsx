@@ -83,32 +83,31 @@ export default function SignupPage() {
       })
     },
     onSuccess: (res: any, data) => {
+      if (res?.data?.access_token) {
+        const tokens = {
+          access_token: res.data.access_token,
+          refresh_token: res.data.refresh_token,
+        }
+        const userObj = res.data.user
+        useAuthStore.getState().login(tokens, userObj)
+        toast.success(`Welcome to Reva Hub, ${data.name}! 🌿`)
+        navigate('/')
+        return
+      }
+
       const rawDigits = data.phone.replace(/\D/g, '')
       const cleanTen = rawDigits.startsWith('234')
         ? rawDigits.slice(3)
         : (rawDigits.startsWith('0') ? rawDigits.slice(1) : rawDigits)
       const phone = `234${cleanTen}`
 
-      // Forward to VerifyOTPPage for WhatsApp verification
-      if (res?.data?.requires_verification || !res?.data?.access_token) {
-        toast.success(res?.data?.message || 'Verification code sent to your WhatsApp!')
-        navigate('/verify-otp', {
-          state: {
-            phone,
-            whatsapp_link: res?.data?.whatsapp_link,
-          },
-        })
-        return
-      }
-
-      const tokens = {
-        access_token: res.data.access_token,
-        refresh_token: res.data.refresh_token,
-      }
-      const userObj = res.data.user
-      useAuthStore.getState().login(tokens, userObj)
-      toast.success(`Welcome to Reva Hub, ${data.name}! 🌿`)
-      navigate('/')
+      toast.success(res?.data?.message || 'Account created!')
+      navigate('/verify-otp', {
+        state: {
+          phone,
+          whatsapp_link: res?.data?.whatsapp_link,
+        },
+      })
     },
     onError: (err: any) => {
       toast.error(extractError(err))
@@ -174,7 +173,7 @@ export default function SignupPage() {
           <GoogleAuthButton mode="signup" redirectTo="/" />
           <div className="relative flex items-center justify-center my-4">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-cream-200" /></div>
-            <span className="relative bg-white px-2 text-xs uppercase tracking-wider text-dark-400">or sign up with WhatsApp phone</span>
+            <span className="relative bg-white px-2 text-xs uppercase tracking-wider text-dark-400">or sign up with phone</span>
           </div>
         </div>
       )}
@@ -190,7 +189,7 @@ export default function SignupPage() {
           />
           <div>
             <label className="block text-sm font-medium text-dark-800 mb-1">
-              WhatsApp Phone number <span className="text-red-500">*</span>
+              Phone number <span className="text-red-500">*</span>
             </label>
             <div className="flex">
               <span className="flex items-center px-3 bg-cream-100 border border-r-0 border-cream-200 rounded-l-lg text-dark-700 text-sm font-medium whitespace-nowrap">+234</span>
@@ -205,7 +204,7 @@ export default function SignupPage() {
             {form1.formState.errors.phone ? (
               <p className="mt-1 text-sm text-red-600">{form1.formState.errors.phone.message}</p>
             ) : (
-              <p className="text-xs text-dark-500 mt-1">We'll send your 6-digit verification code to this WhatsApp number</p>
+              <p className="text-xs text-dark-500 mt-1">Enter your Nigerian phone number (10 or 11 digits)</p>
             )}
           </div>
           <Input
